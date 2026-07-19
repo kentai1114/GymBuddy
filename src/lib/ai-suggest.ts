@@ -5,8 +5,10 @@ import type {
   UserProfile,
   WorkoutSession,
 } from './types'
-import { getExercise } from '@/data/exercises'
+import { EXERCISES, getExercise } from '@/data/exercises'
 import { lastCompleted, uid } from './utils'
+import { chatCompletion, extractJsonObject } from './openrouter'
+import { hasLlmConfigured } from './settings'
 
 const RECOVERY_HOURS: Partial<Record<MuscleGroup, number>> = {
   chest: 48,
@@ -18,6 +20,17 @@ const RECOVERY_HOURS: Partial<Record<MuscleGroup, number>> = {
   cardio: 12,
   full_body: 48,
 }
+
+const VALID_MUSCLES = new Set<MuscleGroup>([
+  'chest',
+  'back',
+  'shoulders',
+  'arms',
+  'legs',
+  'core',
+  'cardio',
+  'full_body',
+])
 
 type FocusPlan = {
   focus: MuscleGroup[]
@@ -109,17 +122,31 @@ function lastWeight(sessions: WorkoutSession[], exerciseId: string): number | un
   return undefined
 }
 
-function buildPlannedExercises(
+export function buildPlannedExercises(
   exerciseIds: string[],
   sessions: WorkoutSession[],
   profile: UserProfile,
+  details?: Array<{
+    exerciseId: string
+    sets?: number
+    reps?: number
+    restSec?: number
+    weight?: number
+    durationSec?: number
+  }>,
 ): PlannedExercise[] {
   return exerciseIds.map((exerciseId) => {
-    const ex = getExercise(exerciseId)!
-    const restSec = ex.defaultRestSec ?? (ex.kind === 'cardio' ? 60 : 75)
+    const ex = getExercise(exerciseId)
+    if (!ex) {
+      throw new Error(`未知動作: ${exerciseId}`)
+    }
+    const detail = details?.find((d) => d.exerciseId === exerciseId)
+    const restSec = detail?.restSec ?? ex.defaultRestSec ?? (ex.kind === 'cardio' ? 60 : 75)
     const prev = lastWeight(sessions, exerciseId)
     const bump = profile.goal === 'strength' ? 2.5 : profile.goal === 'hypertrophy' ? 1.25 : 0
-    const weight = prev != null ? Math.round((prev + bump) * 4) / 4 : undefined
+    const weight =
+      detail?.weight ??
+      (prev != null ? Math.round((prev + bump) * 4) / 4 : undefined)
 
     if (ex.kind === 'cardio') {
       return {
@@ -130,15 +157,15 @@ function buildPlannedExercises(
         sets: [
           {
             id: uid('set'),
-            targetDurationSec: ex.defaultDurationSec ?? 300,
+            targetDurationSec: detail?.durationSec ?? ex.defaultDurationSec ?? 300,
             completed: false,
           },
         ],
       }
     }
 
-    const sets = ex.defaultSets ?? 3
-    const reps = ex.defaultReps ?? 10
+    const sets = detail?.sets ?? ex.defaultSets ?? 3
+    const reps = detail?.reps ?? ex.defaultReps ?? 10
     return {
       id: uid('pe'),
       exerciseId,
@@ -154,13 +181,24 @@ function buildPlannedExercises(
   })
 }
 
+function recoveryNotes(sessions: WorkoutSession[]): string[] {
+  return (['chest', 'back', 'shoulders', 'arms', 'legs'] as MuscleGroup[]).map((m) => {
+    const hours = hoursSinceMuscle(sessions, m)
+    const need = RECOVERY_HOURS[m] ?? 48
+    if (hours >= need) return `${m}: 已恢復（${hours}h）`
+    return `${m}: 尚需約 ${need - hours}h`
+  })
+}
+
 export interface SuggestionResult {
   session: WorkoutSession
   reason: string
   recoveryNotes: string[]
+  source: 'llm' | 'heuristic'
+  model?: string
 }
 
-export function suggestWorkout(
+export function suggestWorkoutHeuristic(
   sessions: WorkoutSession[],
   profile: UserProfile,
 ): SuggestionResult {
@@ -169,14 +207,7 @@ export function suggestWorkout(
     .sort((a, b) => b.score - a.score)
 
   const best = ranked[0].plan
-  const recoveryNotes = (['chest', 'back', 'shoulders', 'arms', 'legs'] as MuscleGroup[]).map(
-    (m) => {
-      const hours = hoursSinceMuscle(sessions, m)
-      const need = RECOVERY_HOURS[m] ?? 48
-      if (hours >= need) return `${m}: 已恢復（${hours}h）`
-      return `${m}: 尚需約 ${need - hours}h`
-    },
-  )
+  const notes = recoveryNotes(sessions)
 
   const session: WorkoutSession = {
     id: uid('ws'),
@@ -203,5 +234,152 @@ export function suggestWorkout(
         : '節奏會偏向代謝與持續輸出。',
   ].join(' ')
 
-  return { session, reason, recoveryNotes }
+  return { session, reason, recoveryNotes: notes, source: 'heuristic' }
+}
+
+/** Sync preview helper (heuristic). Prefer suggestWorkout() for real AI. */
+export function suggestWorkout(
+  sessions: WorkoutSession[],
+  profile: UserProfile,
+): SuggestionResult {
+  return suggestWorkoutHeuristic(sessions, profile)
+}
+
+function buildHistoryContext(sessions: WorkoutSession[], profile: UserProfile): string {
+  const recent = [...sessions]
+    .filter((s) => s.status === 'completed' && s.completedAt)
+    .sort((a, b) => (b.completedAt! > a.completedAt! ? 1 : -1))
+    .slice(0, 8)
+
+  const catalog = EXERCISES.map(
+    (e) => `${e.id} | ${e.nameZh} | ${e.muscle} | ${e.kind}`,
+  ).join('\n')
+
+  const history = recent
+    .map((s) => {
+      const moves = s.exercises
+        .map((e) => {
+          const w = e.sets[0]?.actualWeight ?? e.sets[0]?.targetWeight
+          return `${e.exerciseId}${w != null ? `@${w}kg` : ''}`
+        })
+        .join(', ')
+      return `- ${s.completedAt?.slice(0, 10)} ${s.title} [${s.focus.join(',')}] :: ${moves}`
+    })
+    .join('\n')
+
+  return `Profile: ${JSON.stringify(profile)}
+Recovery notes:
+${recoveryNotes(sessions).join('\n')}
+Recent workouts:
+${history || '(none)'}
+Exercise catalog (use ONLY these exerciseId values):
+${catalog}`
+}
+
+type LlmPlan = {
+  title?: string
+  focus?: string[]
+  goal?: string
+  estimatedMinutes?: number
+  reason?: string
+  exercises?: Array<{
+    exerciseId?: string
+    sets?: number
+    reps?: number
+    restSec?: number
+    weight?: number
+    durationSec?: number
+  }>
+}
+
+export async function suggestWorkoutWithLlm(
+  sessions: WorkoutSession[],
+  profile: UserProfile,
+): Promise<SuggestionResult> {
+  if (!hasLlmConfigured()) {
+    return suggestWorkoutHeuristic(sessions, profile)
+  }
+
+  const fallback = suggestWorkoutHeuristic(sessions, profile)
+
+  try {
+    const content = await chatCompletion({
+      json: true,
+      temperature: 0.5,
+      maxTokens: 1400,
+      messages: [
+        {
+          role: 'system',
+          content: `You are FORGE, an expert gym programming coach.
+Return ONLY a JSON object with keys:
+title (string), focus (array of muscle ids), goal (string in Cantonese/Chinese),
+estimatedMinutes (number 30-75), reason (string in Cantonese explaining why),
+exercises (array of {exerciseId, sets?, reps?, restSec?, weight?, durationSec?}).
+Rules:
+- Use ONLY exerciseId values from the catalog.
+- Prefer recovered muscles; avoid repeating yesterday's main focus.
+- 4-6 exercises. Include treadmill-run-5 or bike-intervals if conditioning fits.
+- Suggest progressive overload weights when history has prior weights.
+- Keep JSON valid.`,
+        },
+        {
+          role: 'user',
+          content: `Design today's workout.\n\n${buildHistoryContext(sessions, profile)}`,
+        },
+      ],
+    })
+
+    const parsed = extractJsonObject(content) as LlmPlan
+    const exerciseIds = (parsed.exercises ?? [])
+      .map((e) => e.exerciseId)
+      .filter((id): id is string => Boolean(id && getExercise(id)))
+
+    if (exerciseIds.length < 3) {
+      return { ...fallback, reason: `${fallback.reason}（LLM 回傳唔完整，已用本地建議）` }
+    }
+
+    const focus = (parsed.focus ?? [])
+      .filter((m): m is MuscleGroup => VALID_MUSCLES.has(m as MuscleGroup))
+      .slice(0, 4)
+
+    const session: WorkoutSession = {
+      id: uid('ws'),
+      date: formatISO(new Date(), { representation: 'date' }),
+      title: parsed.title?.trim() || fallback.session.title,
+      focus: focus.length ? focus : fallback.session.focus,
+      goal: parsed.goal?.trim() || fallback.session.goal,
+      estimatedMinutes: Math.min(
+        90,
+        Math.max(25, Number(parsed.estimatedMinutes) || fallback.session.estimatedMinutes),
+      ),
+      exercises: buildPlannedExercises(
+        exerciseIds.slice(0, 7),
+        sessions,
+        profile,
+        parsed.exercises?.filter((e) => e.exerciseId && getExercise(e.exerciseId)) as Array<{
+          exerciseId: string
+          sets?: number
+          reps?: number
+          restSec?: number
+          weight?: number
+          durationSec?: number
+        }>,
+      ),
+      status: 'planned',
+      source: 'ai',
+    }
+
+    return {
+      session,
+      reason: parsed.reason?.trim() || fallback.reason,
+      recoveryNotes: fallback.recoveryNotes,
+      source: 'llm',
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'LLM 失敗'
+    return {
+      ...fallback,
+      reason: `${fallback.reason}\n\n（OpenRouter 不可用：${msg}，已回退本地建議）`,
+    }
+  }
 }

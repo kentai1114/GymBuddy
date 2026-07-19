@@ -76,7 +76,8 @@ button {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
-  padding: 20px 18px calc(var(--nav-h) + 28px);
+  padding: calc(20px + env(safe-area-inset-top)) 18px
+    calc(var(--nav-h) + 28px + env(safe-area-inset-bottom));
 }
 
 .page {
@@ -115,6 +116,16 @@ button {
   to {
     transform: scale(1.04);
   }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
 }
 
 .brand-mark {

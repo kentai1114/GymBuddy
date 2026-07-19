@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom'
-import { ArrowRight, Clock3, Target, Timer } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, Clock3, Settings, Target, Timer } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
-import { suggestWorkout } from '@/lib/ai-suggest'
+import { suggestWorkoutHeuristic } from '@/lib/ai-suggest'
 import {
   formatMinutes,
   formatRelative,
@@ -10,19 +11,28 @@ import {
   sessionProgress,
 } from '@/lib/utils'
 import { getExercise } from '@/data/exercises'
+import { hasLlmConfigured } from '@/lib/settings'
 
 export function HomePage() {
   const { state, todaySession, adoptSuggestion, startSession } = useWorkout()
+  const navigate = useNavigate()
+  const [starting, setStarting] = useState(false)
   const last = lastCompleted(state.sessions)
-  const preview = todaySession ?? suggestWorkout(state.sessions, state.profile).session
+  const preview = todaySession ?? suggestWorkoutHeuristic(state.sessions, state.profile).session
   const isPlanned = Boolean(todaySession)
 
-  const handleStart = () => {
-    let session = todaySession
-    if (!session) {
-      session = adoptSuggestion()
+  const handleStart = async () => {
+    setStarting(true)
+    try {
+      let session = todaySession
+      if (!session) {
+        session = await adoptSuggestion()
+      }
+      startSession(session.id)
+      navigate('/session')
+    } finally {
+      setStarting(false)
     }
-    startSession(session.id)
   }
 
   return (
@@ -32,11 +42,17 @@ export function HomePage() {
           <p className="brand-mark">FORGE</p>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>
             你好，{state.profile.name}
+            {hasLlmConfigured() ? ' · LLM 已接' : ''}
           </p>
         </div>
-        <Link to="/weekly" className="chip">
-          本週概覽
-        </Link>
+        <div className="row" style={{ gap: 8 }}>
+          <Link to="/settings" className="chip" aria-label="設定">
+            <Settings size={14} />
+          </Link>
+          <Link to="/weekly" className="chip">
+            本週概覽
+          </Link>
+        </div>
       </header>
 
       <section className="panel panel-accent hero-today">
@@ -116,14 +132,19 @@ export function HomePage() {
       </section>
 
       <div className="stack">
-        <Link
-          to="/session"
+        <button
+          type="button"
           className="btn btn-primary btn-block"
-          onClick={handleStart}
+          onClick={() => void handleStart()}
+          disabled={starting}
         >
-          {todaySession?.status === 'in_progress' ? '繼續訓練' : '開始今日訓練'}
+          {starting
+            ? '準備中…'
+            : todaySession?.status === 'in_progress'
+              ? '繼續訓練'
+              : '開始今日訓練'}
           <ArrowRight size={18} />
-        </Link>
+        </button>
         <div className="row" style={{ gap: 10 }}>
           <Link to="/coach" className="btn btn-ghost btn-block">
             AI Coach

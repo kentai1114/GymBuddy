@@ -1,60 +1,102 @@
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Sparkles, CheckCircle2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Loader2, RefreshCw, Sparkles, CheckCircle2, Settings } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
-import { suggestWorkout } from '@/lib/ai-suggest'
+import type { SuggestionResult } from '@/lib/ai-suggest'
+import { suggestWorkoutHeuristic } from '@/lib/ai-suggest'
 import { getExercise, MUSCLE_LABELS } from '@/data/exercises'
 import { formatMinutes, muscleLabel } from '@/lib/utils'
+import { hasLlmConfigured, loadLlmSettings } from '@/lib/settings'
 
 export function SuggestPage() {
-  const { state, adoptSuggestion, startSession, todaySession } = useWorkout()
+  const { state, adoptSuggestion, startSession, todaySession, generateSuggestion } = useWorkout()
   const navigate = useNavigate()
-
-  const result = useMemo(
-    () => suggestWorkout(state.sessions, state.profile),
-    [state.sessions, state.profile],
+  const [result, setResult] = useState<SuggestionResult>(() =>
+    suggestWorkoutHeuristic(state.sessions, state.profile),
   )
+  const [loading, setLoading] = useState(false)
+  const llmOn = hasLlmConfigured()
 
-  const handleAdopt = (start = false) => {
-    const session = adoptSuggestion()
-    if (start) {
-      startSession(session.id)
-      navigate('/session')
-    } else {
-      navigate('/')
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const next = await generateSuggestion()
+      setResult(next)
+    } finally {
+      setLoading(false)
+    }
+  }, [generateSuggestion])
+
+  useEffect(() => {
+    void refresh()
+    // initial LLM fetch only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleAdopt = async (start = false) => {
+    setLoading(true)
+    try {
+      const session = await adoptSuggestion(result.session)
+      if (start) {
+        startSession(session.id)
+        navigate('/session')
+      } else {
+        navigate('/')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <div className="page stack">
       <header>
-        <p className="brand-mark">FORGE</p>
+        <div className="row space-between">
+          <p className="brand-mark">FORGE</p>
+          <Link to="/settings" className="chip">
+            <Settings size={14} /> LLM
+          </Link>
+        </div>
         <h1 style={{ marginTop: 8 }}>AI Workout Suggestion</h1>
         <p className="muted" style={{ marginTop: 8 }}>
-          根據你之前練過咩、恢復狀態同目標，自動排今日課表。
+          {llmOn
+            ? `OpenRouter · ${loadLlmSettings().model}`
+            : '未設定 API Key — 而家用本地規則。去設定接真實 LLM。'}
         </p>
       </header>
 
       <section className="panel panel-accent">
-        <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-          <Sparkles size={18} color="var(--accent)" />
-          <span className="chip">核心推薦</span>
-        </div>
-        <h2>{result.session.title}</h2>
-        <p style={{ margin: '8px 0 0' }}>{muscleLabel(result.session.focus)}</p>
-        <p className="muted" style={{ margin: '10px 0 0', lineHeight: 1.5 }}>
-          {result.reason}
-        </p>
-        <div className="stat-grid" style={{ marginTop: 16 }}>
-          <div className="stat">
-            <span className="muted">預計時間</span>
-            <strong>{formatMinutes(result.session.estimatedMinutes)}</strong>
+        <div className="row space-between" style={{ marginBottom: 10 }}>
+          <div className="row" style={{ gap: 8 }}>
+            <Sparkles size={18} color="var(--accent)" />
+            <span className="chip">{result.source === 'llm' ? 'OpenRouter LLM' : '本地引擎'}</span>
           </div>
-          <div className="stat">
-            <span className="muted">動作數</span>
-            <strong>{result.session.exercises.length}</strong>
-          </div>
+          <button className="btn btn-ghost" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => void refresh()} disabled={loading}>
+            {loading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+            重新生成
+          </button>
         </div>
+        {loading && !result ? (
+          <p className="muted">AI 諗緊今日課表…</p>
+        ) : (
+          <>
+            <h2>{result.session.title}</h2>
+            <p style={{ margin: '8px 0 0' }}>{muscleLabel(result.session.focus)}</p>
+            <p className="muted" style={{ margin: '10px 0 0', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+              {result.reason}
+            </p>
+            <div className="stat-grid" style={{ marginTop: 16 }}>
+              <div className="stat">
+                <span className="muted">預計時間</span>
+                <strong>{formatMinutes(result.session.estimatedMinutes)}</strong>
+              </div>
+              <div className="stat">
+                <span className="muted">動作數</span>
+                <strong>{result.session.exercises.length}</strong>
+              </div>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="panel">
@@ -95,10 +137,10 @@ export function SuggestPage() {
         </div>
       )}
 
-      <button className="btn btn-primary btn-block" onClick={() => handleAdopt(true)}>
+      <button className="btn btn-primary btn-block" onClick={() => void handleAdopt(true)} disabled={loading}>
         採用並開始訓練
       </button>
-      <button className="btn btn-ghost btn-block" onClick={() => handleAdopt(false)}>
+      <button className="btn btn-ghost btn-block" onClick={() => void handleAdopt(false)} disabled={loading}>
         採用為今日計劃
       </button>
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Check, Pause, Play, SkipForward } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
-import { suggestWorkout } from '@/lib/ai-suggest'
+import { suggestWorkoutHeuristic } from '@/lib/ai-suggest'
 import { getExercise } from '@/data/exercises'
 import { formatSeconds, sessionProgress } from '@/lib/utils'
 
@@ -80,18 +80,18 @@ export function SessionPage() {
     return () => window.clearInterval(t)
   }, [cardioRunning, cardioLeft])
 
-  const ensureSession = () => {
+  const ensureSession = async () => {
     if (session) {
       if (session.status !== 'in_progress') startSession(session.id)
       return session
     }
-    const created = adoptSuggestion()
+    const created = await adoptSuggestion()
     startSession(created.id)
     return created
   }
 
-  const onCompleteSet = () => {
-    const active = ensureSession()
+  const onCompleteSet = async () => {
+    const active = await ensureSession()
     if (!current) return
 
     if (current.ex.kind === 'cardio') {
@@ -118,7 +118,7 @@ export function SessionPage() {
   }
 
   if (!session) {
-    const preview = suggestWorkout(state.sessions, state.profile).session
+    const preview = suggestWorkoutHeuristic(state.sessions, state.profile).session
     return (
       <div className="page stack">
         <header>
@@ -135,8 +135,7 @@ export function SessionPage() {
         <button
           className="btn btn-primary btn-block"
           onClick={() => {
-            const s = adoptSuggestion()
-            startSession(s.id)
+            void adoptSuggestion().then((s) => startSession(s.id))
           }}
         >
           採用建議並開始
@@ -303,7 +302,7 @@ export function SessionPage() {
 
           <button
             className="btn btn-primary btn-block"
-            onClick={onCompleteSet}
+            onClick={() => void onCompleteSet()}
             disabled={phase === 'rest'}
           >
             <Check size={18} />

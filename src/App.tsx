@@ -8,6 +8,7 @@ import { SessionPage } from '@/pages/SessionPage'
 import { DatabasePage } from '@/pages/DatabasePage'
 import { CoachPage } from '@/pages/CoachPage'
 import { WeeklyPage } from '@/pages/WeeklyPage'
+import { SettingsPage } from '@/pages/SettingsPage'
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
             <Route path="database/:id" element={<DatabasePage />} />
             <Route path="coach" element={<CoachPage />} />
             <Route path="weekly" element={<WeeklyPage />} />
+            <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
