@@ -57,38 +57,40 @@ npm run preview    # 預覽打包結果
 
 ---
 
-## 接真實 AI（OpenRouter）
+## GitHub Pages（免費 PWA）
 
-1. 去 [openrouter.ai/keys](https://openrouter.ai/keys) 建立 API Key  
-   - 用 **free models 唔一定要信用卡**
-2. 打開 App → **設定** → 貼上 Key → 揀 model → 儲存  
-   或在專案根目錄建立 `.env`：
+唔使出 iOS App。Push 去 `main` 之後，GitHub Actions 會 build 並部署靜態站。第一次要：
 
-```bash
-cp .env.example .env
-# 編輯 .env：
-# VITE_OPENROUTER_API_KEY=sk-or-v1-你的key
-```
+1. GitHub repo → **Settings → Pages → Source** 揀 **GitHub Actions**
+2. 等 workflow `Deploy GitHub Pages` 跑完
+3. 用手機 Safari / Chrome 打開 `https://<你>.github.io/<repo>/`，加到主畫面就係 PWA
 
-### 建議 Model
-
-| Model | 費用 | 說明 |
-|-------|------|------|
-| `openrouter/free` | $0 | 預設；自動路由可用免費 model |
-| `meta-llama/llama-3.3-70b-instruct:free` | $0 | 課表 JSON 較穩 |
-| `google/gemma-3-12b-it:free` | $0 | 輕量、回應快 |
-| `google/gemini-2.0-flash-001` | 極平 | 免費額用完時 |
-| `deepseek/deepseek-chat` | 好平 | 中文表現好 |
-
-**額度參考：** 免費帳號大約 **50 次/日**；帳戶儲值約 **US$10** 後，free model 可升到約 **1000 次/日**。
-
-未設定 Key 時，AI 建議 / Coach 會用**本地規則引擎**，App 一樣可以完整使用。
+根目錄有 `manifest.json`（名稱、主題色、Icon）同 `service-worker.js`（離線快取）。
 
 ---
 
-## 手機版（Capacitor）
+## 接真實 AI（ChatGPT / OpenRouter）
 
-本專案用 **Capacitor** 把現有 React 網頁包成 iOS / Android App（唔使重寫 React Native）。
+去 App **設定 → LLM**，揀 ChatGPT 或 OpenRouter tab，跟住頁面步驟整 API key。
+
+- **兩個都有**：預設用 ChatGPT，可以喺設定改優先
+- **得 ChatGPT**：用 ChatGPT
+- **得 OpenRouter**：用 OpenRouter
+- **兩個都冇**：用本地規則排課，App 一樣可以用
+
+或在專案根目錄建立 `.env`（只限本機開發；GitHub Pages 唔好把 key 寫入 repo）：
+
+```bash
+cp .env.example .env
+# OPENAI_API_KEY=sk-...
+# OPENROUTER_API_KEY=sk-or-v1-...
+```
+
+---
+
+## 手機版（Capacitor，可選）
+
+免費方案請用上面嘅 **GitHub Pages PWA**。下面只喺你真係要上 App Store / Play 先用。
 
 > `npm run mobile:ios` **唔係**開 API server，亦**唔會**長期佔用 port。  
 > 佢只係：打包網頁 → sync 入原生專案 → 打開 Xcode。  
@@ -145,9 +147,9 @@ gym_app/
 ├── src/
 │   ├── pages/           # 各頁面（今日、建議、訓練、記錄、動作庫、Coach、設定…）
 │   ├── lib/
-│   │   ├── openrouter.ts    # OpenRouter API
+│   │   ├── openai.ts        # ChatGPT / OpenRouter API
 │   │   ├── ai-suggest.ts    # AI 課表建議（LLM + 本地回退）
-│   │   ├── coach.ts         # AI Coach
+│   │   ├── pwa.ts           # Service worker 註冊
 │   │   └── settings.ts      # LLM 設定與 model 清單
 │   ├── data/exercises.ts    # 動作資料庫
 │   └── context/             # 全域訓練狀態（LocalStorage）

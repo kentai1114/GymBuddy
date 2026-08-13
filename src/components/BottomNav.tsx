@@ -1,12 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { CalendarDays, Database, Dumbbell, Home, Sparkles } from 'lucide-react'
+import { CalendarDays, Dumbbell } from 'lucide-react'
 
 const links = [
-  { to: '/', label: '今日', icon: Home, end: true },
-  { to: '/suggest', label: 'AI建議', icon: Sparkles },
-  { to: '/session', label: '訓練', icon: Dumbbell },
-  { to: '/history', label: '記錄', icon: CalendarDays },
-  { to: '/database', label: '動作庫', icon: Database },
+  { to: '/', label: '訓練', icon: Dumbbell, end: true },
+  { to: '/history', label: '紀錄', icon: CalendarDays },
 ]
 
 export function BottomNav() {
@@ -19,8 +16,12 @@ export function BottomNav() {
           end={end}
           className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
         >
-          <Icon size={18} strokeWidth={2.2} />
-          <span>{label}</span>
+          {({ isActive }) => (
+            <>
+              <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
+              <span>{label}</span>
+            </>
+          )}
         </NavLink>
       ))}
     </nav>
