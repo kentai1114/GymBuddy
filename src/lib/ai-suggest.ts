@@ -152,6 +152,15 @@ function scaleCardioSec(ex: Exercise, minutes: number, override?: number): numbe
   return base
 }
 
+function finiteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value.replace(/[^\d.-]/g, ''))
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  return undefined
+}
+
 export function buildPlannedExercises(
   exerciseIds: string[],
   sessions: WorkoutSession[],
@@ -172,13 +181,15 @@ export function buildPlannedExercises(
       throw new Error(`未知動作: ${exerciseId}`)
     }
     const detail = details?.find((d) => d.exerciseId === exerciseId)
-    const restSec = detail?.restSec ?? ex.defaultRestSec ?? (ex.kind === 'cardio' ? 60 : 75)
+    const restSec =
+      finiteNumber(detail?.restSec) ?? ex.defaultRestSec ?? (ex.kind === 'cardio' ? 60 : 75)
     const prev = lastWeight(sessions, exerciseId)
+    const reps = finiteNumber(detail?.reps) ?? ex.defaultReps ?? 10
     const weight =
-      detail?.weight ??
+      finiteNumber(detail?.weight) ??
       (prev != null
         ? progressWeight(ex, profile, prev)
-        : suggestStartWeight(ex, profile, detail?.reps))
+        : suggestStartWeight(ex, profile, reps))
 
     if (ex.kind === 'cardio') {
       return {
@@ -189,7 +200,7 @@ export function buildPlannedExercises(
         sets: [
           {
             id: uid('set'),
-            targetDurationSec: scaleCardioSec(ex, minutes, detail?.durationSec),
+            targetDurationSec: scaleCardioSec(ex, minutes, finiteNumber(detail?.durationSec)),
             completed: false,
           },
         ],
@@ -197,8 +208,8 @@ export function buildPlannedExercises(
     }
 
     if (ex.kind === 'timed') {
-      const sets = scaleSets(ex, minutes, detail?.sets)
-      const hold = detail?.durationSec ?? ex.defaultDurationSec ?? 45
+      const sets = scaleSets(ex, minutes, finiteNumber(detail?.sets))
+      const hold = finiteNumber(detail?.durationSec) ?? ex.defaultDurationSec ?? 45
       return {
         id: uid('pe'),
         exerciseId,
@@ -213,8 +224,7 @@ export function buildPlannedExercises(
       }
     }
 
-    const sets = scaleSets(ex, minutes, detail?.sets)
-    const reps = detail?.reps ?? ex.defaultReps ?? 10
+    const sets = scaleSets(ex, minutes, finiteNumber(detail?.sets))
     return {
       id: uid('pe'),
       exerciseId,
@@ -223,7 +233,7 @@ export function buildPlannedExercises(
       sets: Array.from({ length: sets }, () => ({
         id: uid('set'),
         targetReps: reps,
-        targetWeight: weight,
+        targetWeight: usesWeight(ex) ? weight : undefined,
         completed: false,
       })),
     }

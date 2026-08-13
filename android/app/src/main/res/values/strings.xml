@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">FORGE</string>
-    <string name="title_activity_main">FORGE</string>
-    <string name="package_name">app.forge.gym</string>
-    <string name="custom_url_scheme">app.forge.gym</string>
+    <string name="app_name">GymBuddy</string>
+    <string name="title_activity_main">GymBuddy</string>
+    <string name="package_name">app.gymbuddy</string>
+    <string name="custom_url_scheme">app.gymbuddy</string>
 </resources>

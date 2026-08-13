@@ -1,84 +1,72 @@
-# FORGE — AI 健身訓練助手
+# GymBuddy
 
-> 知道你之前做過咩 → 推薦今日應該練咩 → 做緊時即時帶住你完成 → 自動累積進步
+AI 健身訓練助手：揀今日要練嘅部位 → 自動排課 → 帶住你完成每一組（kg / reps）→ 進度寫入本機紀錄。
 
-FORGE 唔係單純記錄 App，而係一個 **AI Gym Workout Assistant**：根據訓練歷史推薦課表、在訓練中帶住你完成，並自動累積進度。
+資料全部存在裝置 LocalStorage，唔使後端。冇 API Key 都可以用本地規則排課。
 
----
-
-## 功能一覽
-
-| 功能 | 說明 |
-|------|------|
-| **今日訓練** | 今日部位、預計時間、上次訓練時間、今日目標 |
-| **訓練記錄** | Workout History，容量與完成組數自動累積 |
-| **AI 訓練建議** | 核心功能；接 OpenRouter 真實 LLM，失敗則回退本地規則 |
-| **訓練模式** | 完成組數、重量訓練 Rest Timer、5 分鐘跑步計時 |
-| **動作庫** | Muscle / Equipment / Instructions / YouTube demo |
-| **AI Coach** | 對話式教練（今日練咩、休息、加重等） |
-| **本週概覽** | 週曆與部位覆蓋 |
-| **設定** | OpenRouter API Key 與 model 選擇 |
-
----
-
-## 環境需求
-
-- **Node.js 18+**（要有 `npm` 指令）
-- 瀏覽器開發：任何現代瀏覽器
-- iOS 真機 / 模擬器：**Xcode**
-- Android：Android Studio（可選）
-
-若終端機出現 `command not found: npm`，請確認 Node 已安裝並加入 PATH，例如：
-
-```bash
-# 若 Node 裝在 ~/.local/node
-export PATH="$HOME/.local/node/bin:$PATH"
-# 建議寫入 ~/.zshrc，之後新開終端機就有 npm
-```
+日常開發同試用，**直接開網頁版**就得，唔使 Xcode。
 
 ---
 
 ## 快速開始（網頁版）
 
 ```bash
-cd gym_app
+export PATH="$HOME/.local/node/bin:$PATH"   # 如果 command not found: npm
+cd ~/Desktop/Project/GymBuddy
 npm install
 npm run dev
 ```
 
-瀏覽器打開終端機顯示的網址（通常是 `http://localhost:5173`）。
+瀏覽器打開：**http://localhost:5173/**
 
-其他指令：
+改 `src/` 會即時 refresh。
+
+手機用同一個 Wi‑Fi 試：
 
 ```bash
-npm run build      # 生產環境打包
-npm run preview    # 預覽打包結果
+npm run dev -- --host
 ```
 
+然後用終端機顯示嘅 **Network** 網址（例如 `http://192.168.x.x:5173`）喺手機瀏覽器打開。Safari / Chrome 可以加到主畫面當 PWA。
+
+其他：
+
+```bash
+npm run build      # 生產打包
+npm run preview    # 預覽 dist
+```
+
+建議把 `export PATH="$HOME/.local/node/bin:$PATH"` 寫入 `~/.zshrc`，之後新開終端機就有 `npm`。
+
 ---
 
-## GitHub Pages（免費 PWA）
+## 功能
 
-唔使出 iOS App。Push 去 `main` 之後，GitHub Actions 會 build 並部署靜態站。第一次要：
+| 頁面 | 做咩 |
+|------|------|
+| **訓練** | 揀肌群同時長，產生今日課表；記 kg / reps、休息計時、示範動畫 |
+| **紀錄** | 月曆睇過往訓練、週／月容量同完成組數 |
+| **設定** | 個人資料（目標、經驗、分化、每週日數）同 LLM |
 
-1. GitHub repo → **Settings → Pages → Source** 揀 **GitHub Actions**
-2. 等 workflow `Deploy GitHub Pages` 跑完
-3. 用手機 Safari / Chrome 打開 `https://<你>.github.io/<repo>/`，加到主畫面就係 PWA
-
-根目錄有 `manifest.json`（名稱、主題色、Icon）同 `service-worker.js`（離線快取）。
+其他：肌肉恢復提示、即場換動作、完成後有時間／容量／估算消耗。
 
 ---
 
-## 接真實 AI（ChatGPT / OpenRouter）
+## 接真實 AI
 
-去 App **設定 → LLM**，揀 ChatGPT 或 OpenRouter tab，跟住頁面步驟整 API key。
+去 **設定 → LLM**。兩個供應商分開兩張卡，頂部會寫而家排課用邊個。
 
-- **兩個都有**：預設用 ChatGPT，可以喺設定改優先
-- **得 ChatGPT**：用 ChatGPT
-- **得 OpenRouter**：用 OpenRouter
-- **兩個都冇**：用本地規則排課，App 一樣可以用
+| | ChatGPT | OpenRouter |
+|--|---------|------------|
+| 要咩 | 貼 `sk-` key，再揀 model | 只貼 `sk-or-` key |
+| Model | `gpt-5.6-luna` / `gpt-5.4-mini` / `gpt-5.4-nano` / `gpt-5-mini` / `gpt-5-nano` | 自動揀，App 入面唔使選 |
+| Key | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | [openrouter.ai/keys](https://openrouter.ai/keys) |
 
-或在專案根目錄建立 `.env`（只限本機開發；GitHub Pages 唔好把 key 寫入 repo）：
+- 兩個都有：預設用 ChatGPT，可以改「優先用邊個」
+- 得其中一個：用嗰個
+- 兩個都冇：用本地規則排課，App 照用
+
+本機開發亦可以喺專案根目錄建立 `.env`（唔好 commit）：
 
 ```bash
 cp .env.example .env
@@ -86,93 +74,78 @@ cp .env.example .env
 # OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
+GitHub Pages 唔好把 key 寫入 repo；喺網頁／App 設定頁貼 key 即可。
+
 ---
 
-## 手機版（Capacitor，可選）
+## GitHub Pages（PWA）
 
-免費方案請用上面嘅 **GitHub Pages PWA**。下面只喺你真係要上 App Store / Play 先用。
+Push 去 `main` / `master` 之後，GitHub Actions 會 build 並部署靜態站。第一次：
 
-> `npm run mobile:ios` **唔係**開 API server，亦**唔會**長期佔用 port。  
-> 佢只係：打包網頁 → sync 入原生專案 → 打開 Xcode。  
-> 終端機可以關；之後用 Xcode 撳 ▶ 運行。
+1. Repo → **Settings → Pages → Source** 揀 **GitHub Actions**
+2. 等 workflow `Deploy GitHub Pages` 跑完
+3. 手機打開 <https://kentai1114.github.io/gym_app/>，加到主畫面
 
-### 常用指令
+---
+
+## iOS / Android（可選）
+
+要原生 App 先用。`npm run mobile:ios` **唔係**開網頁 server，佢只係：打包 → sync 入 Xcode → 打開 Xcode。
 
 ```bash
-npm install
-
-# 改完程式後，同步到手機專案
-npm run mobile:sync
-
-# 同步並打開 Xcode（iOS）
-npm run mobile:ios
-
-# 同步並打開 Android Studio
-npm run mobile:android
+npm run mobile:ios        # sync 並打開 Xcode
+npm run mobile:android    # sync 並打開 Android Studio
+npm run mobile:sync       # 只 sync，唔開 IDE
 ```
 
-### 用 Xcode 試玩（iOS）— 新手步驟
-
-1. 終端機執行：`npm run mobile:ios`
-2. 等 Xcode 打開（見到 `Opening the Xcode workspace` 即係成功）
-3. 頂部中間：
-   - 左邊選 **App**
-   - 右邊選一部模擬器，例如 **iPhone 16**
-4. 撳左上角 ▶（或按 `⌘R`）
-5. 等編譯完成，模擬器會自動開，入面就係 **FORGE**
-
-#### 第一次常見問題
-
-| 情況 | 處理 |
-|------|------|
-| 頂部冇 Simulator | Xcode → Settings → Platforms，安裝 iOS runtime |
-| Signing 紅字 | 選 App target → Signing & Capabilities → Team 選你嘅 Apple ID（免費 Personal Team 都得） |
-| 改咗程式但 App 冇更新 | 再跑 `npm run mobile:sync`，然後返 Xcode 再 ▶ |
-| 想用真機 | 用線連 iPhone → 頂部選你部機 → ▶；第一次要在手機「設定 → 一般 → VPN與裝置管理」信任開發者 |
-
-### App 入面建議試法
-
-1. **設定**：貼 OpenRouter Key（可選）
-2. **AI 建議**：睇今日課表 →「採用並開始訓練」
-3. **訓練**：完成組數、試 Rest Timer / 5 分鐘跑步
-4. **AI Coach**：問「今日練咩？」
-5. **本週概覽 / 記錄**：睇進度累積
+Xcode：選 **App** → 模擬器（例如 iPhone 17）或真機 → Signing 揀 Apple ID → ▶。  
+最低 iOS 15。改完 `src/` 要再 `npm run mobile:sync` 然後 Xcode ▶，網頁版唔使呢步。
 
 ---
 
-## 專案結構（簡述）
+## 指令
+
+| 指令 | 說明 |
+|------|------|
+| `npm run dev` | 本機網頁（http://localhost:5173） |
+| `npm run dev -- --host` | 同一 Wi‑Fi 俾手機開 |
+| `npm run build` | TypeScript check + Vite build |
+| `npm run preview` | 預覽打包結果 |
+| `npm run mobile:sync` | build 後 sync 去 iOS / Android |
+| `npm run mobile:ios` | sync 並打開 Xcode |
+| `npm run mobile:android` | sync 並打開 Android Studio |
+
+---
+
+## 專案結構
 
 ```
-gym_app/
+GymBuddy/
 ├── src/
-│   ├── pages/           # 各頁面（今日、建議、訓練、記錄、動作庫、Coach、設定…）
+│   ├── pages/              # 訓練、紀錄、設定
+│   ├── components/         # 課表 runner、組數表、示範動畫
 │   ├── lib/
-│   │   ├── openai.ts        # ChatGPT / OpenRouter API
-│   │   ├── ai-suggest.ts    # AI 課表建議（LLM + 本地回退）
-│   │   ├── pwa.ts           # Service worker 註冊
-│   │   └── settings.ts      # LLM 設定與 model 清單
-│   ├── data/exercises.ts    # 動作資料庫
-│   └── context/             # 全域訓練狀態（LocalStorage）
-├── ios/                 # Capacitor iOS 專案
-├── android/             # Capacitor Android 專案
+│   │   ├── openai.ts       # ChatGPT / OpenRouter
+│   │   ├── ai-suggest.ts   # AI 排課（LLM + 本地回退）
+│   │   ├── settings.ts     # LLM 設定
+│   │   └── storage.ts      # LocalStorage
+│   ├── data/exercises.ts   # 動作庫
+│   └── context/            # 全域訓練狀態
+├── public/                 # PWA manifest、icons、service worker
+├── ios/                    # Capacitor iOS
+├── android/                # Capacitor Android
 ├── capacitor.config.ts
 └── package.json
 ```
 
-資料預設存在瀏覽器 / App 的 **LocalStorage**，唔使後端。
+---
+
+## 技術
+
+Vite · React 19 · TypeScript · Capacitor 8（iOS / Android）· GitHub Pages PWA
 
 ---
 
-## 技術棧
+## 備註
 
-- Vite + React + TypeScript
-- React Router
-- OpenRouter（OpenAI 相容 API）
-- Capacitor 8（iOS / Android）
-
----
-
-## 授權與備註
-
-個人 / 學習專案用途。API Key 存在本機（設定頁或 `.env`），請勿把 Key 提交到 Git。  
-OpenRouter free model 名單可能更新，請以 [openrouter.ai/models](https://openrouter.ai/models) 為準。
+個人 / 學習用途。API Key 只存在本機（設定頁或 `.env`），唔好提交去 Git。

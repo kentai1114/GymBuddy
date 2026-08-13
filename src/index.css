@@ -773,66 +773,75 @@ h3 {
 
 .set-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-top: 4px;
 }
 
+.set-table.cols-3 {
+  width: 100%;
+}
+
 .set-table th {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: var(--muted);
-  text-align: left;
+  color: var(--text);
+  text-align: center;
   padding: 6px 4px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.set-table th:first-child,
+.set-table td:first-child {
+  text-align: left;
+  width: 44px;
 }
 
 .set-table td {
-  padding: 8px 4px;
+  padding: 6px 4px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+}
+
+.set-index {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .set-table tr.current td {
   color: var(--accent);
 }
 
+.set-table tr.current .set-input {
+  border-color: var(--accent);
+}
+
 .set-table tr.done td {
   color: var(--muted);
 }
 
-.set-check {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid var(--line-strong);
-  display: grid;
-  place-items: center;
-}
-
-.set-check.on {
-  background: var(--ok);
-  border-color: var(--ok);
-  color: #0c0c0e;
-}
-
-.set-check.ready {
-  border-color: var(--accent);
-}
-
 .set-input {
-  width: 64px;
-  border-radius: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border-radius: 10px;
   border: 1px solid var(--line-strong);
   background: var(--bg-soft);
   color: var(--text);
   padding: 8px 6px;
   text-align: center;
+  font-size: 1rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
 .set-input:disabled {
   opacity: 0.5;
+}
+
+.sets-panel .eyebrow {
+  margin-bottom: 8px;
 }
 
 .work-split {
@@ -936,6 +945,84 @@ h3 {
   font-size: 0.88rem;
   line-height: 1.45;
   margin: 0 0 12px;
+}
+
+.llm-banner {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.llm-banner.on {
+  border-color: rgba(255, 90, 31, 0.28);
+  background: linear-gradient(180deg, rgba(255, 90, 31, 0.1), var(--bg-card) 78%);
+}
+
+.llm-banner strong {
+  display: block;
+  font-size: 1.02rem;
+  margin-bottom: 6px;
+}
+
+.llm-banner p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.llm-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.llm-card.active {
+  border-color: rgba(255, 90, 31, 0.4);
+}
+
+.llm-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.llm-badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.llm-help {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.llm-help a {
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.llm-help code {
+  font-size: 0.85em;
+}
+
+.llm-card .field-label {
+  margin-top: 16px;
 }
 
 .howto-ol {

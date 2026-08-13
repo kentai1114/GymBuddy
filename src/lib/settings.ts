@@ -23,17 +23,9 @@ export const OPENAI_MODELS = [
   { id: 'gpt-5.4-nano', label: 'gpt-5.4-nano' },
   { id: 'gpt-5-mini', label: 'gpt-5-mini' },
   { id: 'gpt-5-nano', label: 'gpt-5-nano' },
-  { id: 'gpt-4o-mini', label: 'gpt-4o-mini' },
 ] as const
 
-export const OPENROUTER_MODELS = [
-  { id: 'openrouter/auto', label: 'Auto' },
-  { id: 'openai/gpt-4o-mini', label: 'GPT-4o mini' },
-  { id: 'anthropic/claude-sonnet-4', label: 'Claude Sonnet' },
-  { id: 'google/gemini-2.0-flash-001', label: 'Gemini Flash' },
-  { id: 'deepseek/deepseek-chat', label: 'DeepSeek' },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 (free)' },
-] as const
+export const OPENROUTER_AUTO = 'openrouter/auto'
 
 function envOpenAiKey(): string {
   return (
@@ -52,19 +44,21 @@ function envOpenRouterKey(): string {
 }
 
 export function envOpenAiModel(): string {
-  return (
+  const env =
     import.meta.env.OPENAI_MODEL?.trim() ||
     import.meta.env.VITE_OPENAI_MODEL?.trim() ||
-    'gpt-5.6-luna'
-  )
+    ''
+  return OPENAI_MODELS.some((m) => m.id === env) ? env : 'gpt-5.6-luna'
 }
 
 export function envOpenRouterModel(): string {
-  return (
-    import.meta.env.OPENROUTER_MODEL?.trim() ||
-    import.meta.env.VITE_OPENROUTER_MODEL?.trim() ||
-    'openrouter/auto'
-  )
+  return OPENROUTER_AUTO
+}
+
+function snapOpenAiModel(id: string | undefined): string {
+  const next = id?.trim() || ''
+  if (OPENAI_MODELS.some((m) => m.id === next)) return next
+  return envOpenAiModel()
 }
 
 const DEFAULTS: LlmSettings = {
@@ -94,9 +88,9 @@ function normalize(parsed: LegacyLlmSettings): LlmSettings {
     ...DEFAULTS,
     ...parsed,
     openaiApiKey,
-    openaiModel: parsed.openaiModel?.trim() || parsed.model?.trim() || envOpenAiModel(),
+    openaiModel: snapOpenAiModel(parsed.openaiModel || parsed.model),
     openrouterApiKey,
-    openrouterModel: parsed.openrouterModel?.trim() || envOpenRouterModel(),
+    openrouterModel: OPENROUTER_AUTO,
     preferredProvider: parsed.preferredProvider === 'openrouter' ? 'openrouter' : 'openai',
     enabled: parsed.enabled !== false,
   }
@@ -114,19 +108,20 @@ export function loadLlmSettings(): LlmSettings {
   }
 }
 
-export function saveLlmSettings(settings: LlmSettings): void {
+export function saveLlmSettings(settings: LlmSettings): LlmSettings {
   const next = normalize(settings)
   localStorage.setItem(
     KEY,
     JSON.stringify({
       openaiApiKey: next.openaiApiKey.trim(),
-      openaiModel: next.openaiModel.trim() || envOpenAiModel(),
+      openaiModel: snapOpenAiModel(next.openaiModel),
       openrouterApiKey: next.openrouterApiKey.trim(),
-      openrouterModel: next.openrouterModel.trim() || envOpenRouterModel(),
+      openrouterModel: OPENROUTER_AUTO,
       preferredProvider: next.preferredProvider,
       enabled: next.enabled,
     }),
   )
+  return next
 }
 
 export function resolveLlm(settings = loadLlmSettings()): ResolvedLlm {
@@ -140,13 +135,13 @@ export function resolveLlm(settings = loadLlmSettings()): ResolvedLlm {
       ? {
           kind: 'openrouter',
           apiKey: or,
-          model: settings.openrouterModel.trim() || envOpenRouterModel(),
+          model: OPENROUTER_AUTO,
           label: 'OpenRouter',
         }
       : {
           kind: 'openai',
           apiKey: gpt,
-          model: settings.openaiModel.trim() || envOpenAiModel(),
+          model: snapOpenAiModel(settings.openaiModel),
           label: 'ChatGPT',
         }
   }
@@ -154,7 +149,7 @@ export function resolveLlm(settings = loadLlmSettings()): ResolvedLlm {
     return {
       kind: 'openai',
       apiKey: gpt,
-      model: settings.openaiModel.trim() || envOpenAiModel(),
+      model: snapOpenAiModel(settings.openaiModel),
       label: 'ChatGPT',
     }
   }
@@ -162,7 +157,7 @@ export function resolveLlm(settings = loadLlmSettings()): ResolvedLlm {
     return {
       kind: 'openrouter',
       apiKey: or,
-      model: settings.openrouterModel.trim() || envOpenRouterModel(),
+      model: OPENROUTER_AUTO,
       label: 'OpenRouter',
     }
   }
@@ -174,13 +169,8 @@ export function hasLlmConfigured(settings = loadLlmSettings()): boolean {
 }
 
 export function llmStatusText(settings = loadLlmSettings()): string {
-  const gpt = Boolean(settings.openaiApiKey.trim())
-  const or = Boolean(settings.openrouterApiKey.trim())
   const active = resolveLlm(settings)
-  if (!gpt && !or) return '未設 API key，排課表會用本地規則。'
-  if (gpt && or) {
-    return `兩個都有 key。而家用 ${active.label}（可喺下面改優先）。`
-  }
-  if (gpt) return '得 ChatGPT key，排課表會用 ChatGPT。'
-  return '得 OpenRouter key，排課表會用 OpenRouter。'
+  if (active.kind === 'local') return '未貼 API key，排課會用本地規則。'
+  if (active.kind === 'openai') return `而家用 ChatGPT · ${active.model}`
+  return '而家用 OpenRouter（自動揀 model）'
 }

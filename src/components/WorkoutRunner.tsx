@@ -181,23 +181,16 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
         </div>
       )}
 
-      <section className={`panel${usesTimer ? ' work-split' : ''}`}>
-        {current.ex.kind === 'strength' && (
+      <section className="panel sets-panel">
+        <p className="eyebrow">{usesTimer ? '時間' : 'kg / reps'}</p>
+        <div className={usesTimer ? 'work-split' : undefined}>
           <SetsTable
             pe={current.ex}
             highlightSetId={current.set.id}
             onPatch={(setId, patch) => patchSet(setId, patch)}
+            onCurrentDuration={usesTimer ? setHoldLeft : undefined}
           />
-        )}
-
-        {usesTimer && (
-          <>
-            <SetsTable
-              pe={current.ex}
-              highlightSetId={current.set.id}
-              onPatch={(setId, patch) => patchSet(setId, patch)}
-              onCurrentDuration={setHoldLeft}
-            />
+          {usesTimer && (
             <HoldTimer
               left={holdLeft}
               total={holdTotal}
@@ -207,8 +200,8 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
                 setHoldRunning((v) => !v)
               }}
             />
-          </>
-        )}
+          )}
+        </div>
       </section>
 
       {phase === 'rest' && (

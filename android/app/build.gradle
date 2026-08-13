@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "app.forge.gym"
+    namespace = "app.gymbuddy"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "app.forge.gym"
+        applicationId "app.gymbuddy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
