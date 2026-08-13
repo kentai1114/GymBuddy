@@ -1,159 +1,247 @@
+import { format } from 'date-fns'
+import { zhTW } from 'date-fns/locale'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Clock3, Settings, Target, Timer } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Loader2, Settings, Sparkles } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
-import { suggestWorkoutHeuristic } from '@/lib/ai-suggest'
-import {
-  formatMinutes,
-  formatRelative,
-  lastCompleted,
-  muscleLabel,
-  sessionProgress,
-} from '@/lib/utils'
+import { WorkoutRunner } from '@/components/WorkoutRunner'
+import { ExerciseCard, prescriptionText } from '@/components/ExerciseCard'
+import { SessionReview } from '@/components/SessionReview'
+import { SuggestForm } from '@/components/SuggestForm'
+import { RecoveryStrip } from '@/components/RecoveryStrip'
+import { SwapSheet } from '@/components/SwapSheet'
+import { APP_MARK } from '@/lib/brand'
 import { getExercise } from '@/data/exercises'
-import { hasLlmConfigured } from '@/lib/settings'
+import { sessionKcal, sessionMinutes, sessionVolumeKg } from '@/lib/stats'
+import { formatMinutes, muscleLabel } from '@/lib/utils'
+import type { MuscleGroup, SuggestInput } from '@/lib/types'
 
 export function HomePage() {
-  const { state, todaySession, adoptSuggestion, startSession } = useWorkout()
-  const navigate = useNavigate()
-  const [starting, setStarting] = useState(false)
-  const last = lastCompleted(state.sessions)
-  const preview = todaySession ?? suggestWorkoutHeuristic(state.sessions, state.profile).session
-  const isPlanned = Boolean(todaySession)
+  const {
+    state,
+    todaySession,
+    completedTodayList,
+    adoptSuggestion,
+    generateSuggestion,
+    startSession,
+    replaceExercise,
+    updateSet,
+    deleteSession,
+  } = useWorkout()
+  const [loading, setLoading] = useState(false)
+  const [customizing, setCustomizing] = useState(false)
+  const [focus, setFocus] = useState<MuscleGroup[]>([])
+  const [minutes, setMinutes] = useState(60)
+  const [reason, setReason] = useState('')
+  const [swapPeId, setSwapPeId] = useState<string | null>(null)
 
-  const handleStart = async () => {
-    setStarting(true)
+  const runSuggest = async (input?: SuggestInput) => {
+    setLoading(true)
     try {
-      let session = todaySession
-      if (!session) {
-        session = await adoptSuggestion()
-      }
-      startSession(session.id)
-      navigate('/session')
+      const result = await generateSuggestion(input)
+      await adoptSuggestion(result.session)
+      setReason(result.reason)
+      setCustomizing(false)
     } finally {
-      setStarting(false)
+      setLoading(false)
     }
   }
 
+  const toggleMuscle = (muscle: MuscleGroup) => {
+    setFocus((prev) =>
+      prev.includes(muscle) ? prev.filter((m) => m !== muscle) : [...prev, muscle],
+    )
+  }
+
+  if (todaySession?.status === 'in_progress') {
+    return (
+      <div className="page stack">
+        <Header kicker="訓練中" />
+        <WorkoutRunner session={todaySession} />
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="page stack">
+        <Header />
+        <section className="panel empty">
+          <Loader2 size={28} className="spin" />
+          <h3 style={{ marginTop: 14 }}>排緊課表</h3>
+          <p>按你揀嘅部位同時間嚟砌一套動作。</p>
+        </section>
+      </div>
+    )
+  }
+
+  const showPlan = todaySession?.status === 'planned' && !customizing
+  const showReview = completedTodayList.length > 0 && !showPlan && !customizing
+  const showForm = !showPlan && (!showReview || customizing)
+
   return (
     <div className="page stack">
-      <header className="row space-between">
-        <div>
-          <p className="brand-mark">FORGE</p>
-          <p className="muted" style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>
-            你好，{state.profile.name}
-            {hasLlmConfigured() ? ' · LLM 已接' : ''}
-          </p>
-        </div>
-        <div className="row" style={{ gap: 8 }}>
-          <Link to="/settings" className="chip" aria-label="設定">
-            <Settings size={14} />
-          </Link>
-          <Link to="/weekly" className="chip">
-            本週概覽
-          </Link>
-        </div>
-      </header>
+      <Header />
 
-      <section className="panel panel-accent hero-today">
-        <p className="eyebrow">今日訓練</p>
-        <h1>{preview.title}</h1>
-        <p className="muted" style={{ margin: 0, maxWidth: '28ch' }}>
-          {muscleLabel(preview.focus)} · {preview.goal}
-        </p>
-        {!isPlanned && (
-          <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-            尚未採用計劃 — AI 已根據你嘅訓練史預先排好。
-          </p>
-        )}
-      </section>
-
-      <section className="stat-grid">
-        <div className="stat">
-          <span className="muted row" style={{ gap: 6 }}>
-            <Timer size={14} /> 預計時間
-          </span>
-          <strong>{formatMinutes(preview.estimatedMinutes)}</strong>
-        </div>
-        <div className="stat">
-          <span className="muted row" style={{ gap: 6 }}>
-            <Clock3 size={14} /> 上次訓練
-          </span>
-          <strong style={{ fontSize: '1.05rem' }}>
-            {last ? formatRelative(last.completedAt) : '尚未訓練'}
-          </strong>
-        </div>
-        <div className="stat" style={{ gridColumn: '1 / -1' }}>
-          <span className="muted row" style={{ gap: 6 }}>
-            <Target size={14} /> 今日目標
-          </span>
-          <strong style={{ fontSize: '1.15rem', textTransform: 'none', fontFamily: 'var(--font-body)' }}>
-            {preview.goal}
-          </strong>
-        </div>
-      </section>
-
-      {todaySession?.status === 'in_progress' && (
-        <section className="panel">
-          <div className="row space-between" style={{ marginBottom: 10 }}>
-            <h3>進行中</h3>
-            <span className="chip">{sessionProgress(todaySession)}%</span>
-          </div>
-          <div className="progress-bar">
-            <span style={{ width: `${sessionProgress(todaySession)}%` }} />
-          </div>
-        </section>
+      {showForm && (
+        <>
+          <RecoveryStrip sessions={state.sessions} />
+          <SuggestForm
+            focus={focus}
+            minutes={minutes}
+            loading={loading}
+            onToggleMuscle={toggleMuscle}
+            onMinutes={setMinutes}
+            onSuggest={() => void runSuggest({ focus, minutes })}
+            onAuto={() => void runSuggest({ minutes })}
+          />
+        </>
       )}
 
-      <section className="panel">
-        <div className="row space-between" style={{ marginBottom: 8 }}>
-          <h3>動作預覽</h3>
-          <Link to="/suggest" className="muted" style={{ fontSize: '0.85rem' }}>
-            睇 AI 建議
-          </Link>
-        </div>
-        {preview.exercises.slice(0, 4).map((pe, i) => {
-          const ex = getExercise(pe.exerciseId)
-          return (
-            <div className="list-item" key={pe.id}>
-              <div className="badge">{i + 1}</div>
-              <div style={{ flex: 1 }}>
-                <strong>{ex?.nameZh ?? pe.exerciseId}</strong>
-                <p className="muted" style={{ margin: '4px 0 0', fontSize: '0.85rem' }}>
-                  {pe.kind === 'cardio'
-                    ? `${Math.round((pe.sets[0]?.targetDurationSec ?? 300) / 60)} 分鐘有氧`
-                    : `${pe.sets.length} 組 × ${pe.sets[0]?.targetReps ?? '-'} 次`}
-                  {pe.sets[0]?.targetWeight ? ` · ${pe.sets[0].targetWeight} kg` : ''}
-                </p>
-              </div>
-            </div>
-          )
-        })}
-      </section>
+      {showReview && (
+        <TodayRecap
+          sessions={completedTodayList}
+          bodyWeightKg={state.profile.bodyWeightKg}
+          onAnother={() => setCustomizing(true)}
+          onDelete={deleteSession}
+        />
+      )}
 
-      <div className="stack">
-        <button
-          type="button"
-          className="btn btn-primary btn-block"
-          onClick={() => void handleStart()}
-          disabled={starting}
-        >
-          {starting
-            ? '準備中…'
-            : todaySession?.status === 'in_progress'
-              ? '繼續訓練'
-              : '開始今日訓練'}
-          <ArrowRight size={18} />
-        </button>
-        <div className="row" style={{ gap: 10 }}>
-          <Link to="/coach" className="btn btn-ghost btn-block">
-            AI Coach
-          </Link>
-          <Link to="/history" className="btn btn-ghost btn-block">
-            訓練記錄
-          </Link>
-        </div>
-      </div>
+      {showPlan && todaySession && (
+        <>
+          <section className="panel hero-today">
+            <p className="eyebrow">今日訓練</p>
+            <h1>{todaySession.title}</h1>
+            <p className="muted" style={{ margin: 0 }}>
+              {muscleLabel(todaySession.focus)} · {formatMinutes(todaySession.estimatedMinutes)} ·{' '}
+              {todaySession.exercises.length} 個動作
+            </p>
+            {reason && (
+              <p className="muted" style={{ margin: '4px 0 0', lineHeight: 1.45, fontSize: '0.88rem' }}>
+                {reason}
+              </p>
+            )}
+          </section>
+
+          <div className="ex-list">
+            {todaySession.exercises.map((pe) => {
+              const ex = getExercise(pe.exerciseId)
+              if (!ex) return null
+              const swapping = swapPeId === pe.id
+              return (
+                <div key={pe.id} className="ex-slot" id={swapping ? `swap-${pe.id}` : undefined}>
+                  <ExerciseCard
+                    exercise={ex}
+                    subtitle={prescriptionText(pe)}
+                    planned={pe}
+                    swapping={swapping}
+                    onSwap={() => setSwapPeId(swapping ? null : pe.id)}
+                    onUpdateSet={(setId, patch) => updateSet(todaySession.id, pe.id, setId, patch)}
+                  />
+                  {swapping && (
+                    <SwapSheet
+                      currentId={pe.exerciseId}
+                      onClose={() => setSwapPeId(null)}
+                      onPick={(id) => {
+                        replaceExercise(todaySession.id, pe.id, id)
+                        setSwapPeId(null)
+                      }}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="sticky-cta">
+            <button
+              type="button"
+              className="btn btn-primary btn-block"
+              onClick={() => startSession(todaySession.id)}
+            >
+              開始訓練
+            </button>
+            <button type="button" className="btn btn-ghost btn-block" onClick={() => setCustomizing(true)}>
+              改部位／時間
+            </button>
+          </div>
+        </>
+      )}
     </div>
+  )
+}
+
+function TodayRecap({
+  sessions,
+  bodyWeightKg,
+  onAnother,
+  onDelete,
+}: {
+  sessions: ReturnType<typeof useWorkout>['completedTodayList']
+  bodyWeightKg: number
+  onAnother: () => void
+  onDelete: (sessionId: string) => void
+}) {
+  const minutes = sessions.reduce((sum, s) => sum + sessionMinutes(s), 0)
+  const kcal = sessions.reduce((sum, s) => sum + sessionKcal(s, bodyWeightKg), 0)
+  const volume = Math.round(sessions.reduce((sum, s) => sum + sessionVolumeKg(s), 0))
+
+  return (
+    <>
+      <section className="panel hero-today">
+        <p className="eyebrow">搞掂</p>
+        <h1>今日訓練</h1>
+        <p className="muted" style={{ margin: 0 }}>
+          {sessions.length > 1 ? `完成 ${sessions.length} 堂` : sessions[0]?.title}
+        </p>
+      </section>
+      <section className="stat-grid">
+        <div className="stat">
+          <span className="muted">時間</span>
+          <strong>{formatMinutes(minutes)}</strong>
+        </div>
+        <div className="stat">
+          <span className="muted">消耗</span>
+          <strong>{kcal} kcal</strong>
+        </div>
+        <div className="stat" style={{ gridColumn: '1 / -1' }}>
+          <span className="muted">訓練量</span>
+          <strong>{volume.toLocaleString()} kg</strong>
+        </div>
+      </section>
+      {sessions.map((session) => (
+        <SessionReview
+          key={session.id}
+          session={session}
+          bodyWeightKg={bodyWeightKg}
+          onDelete={() => onDelete(session.id)}
+        />
+      ))}
+      <div className="sticky-cta">
+        <button type="button" className="btn btn-primary btn-block" onClick={onAnother}>
+          <Sparkles size={16} />
+          再排一堂
+        </button>
+        <Link to="/history" className="btn btn-ghost btn-block">
+          睇記錄
+        </Link>
+      </div>
+    </>
+  )
+}
+
+function Header({ kicker }: { kicker?: string }) {
+  return (
+    <header className="row space-between">
+      <div>
+        <p className="brand-mark">{APP_MARK}</p>
+        <p className="page-kicker">
+          {kicker ?? format(new Date(), 'M月d日 EEEE', { locale: zhTW })}
+        </p>
+      </div>
+      <Link to="/settings" className="chip" aria-label="設定">
+        <Settings size={16} />
+      </Link>
+    </header>
   )
 }

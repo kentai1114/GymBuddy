@@ -19,7 +19,9 @@ export type Equipment =
   | 'treadmill'
   | 'none'
 
-export type ExerciseKind = 'strength' | 'cardio'
+export type ExerciseKind = 'strength' | 'cardio' | 'timed'
+
+export type Difficulty = 'beginner' | 'intermediate' | 'advanced'
 
 export interface Exercise {
   id: string
@@ -30,11 +32,12 @@ export interface Exercise {
   equipment: Equipment
   kind: ExerciseKind
   instructions: string[]
-  youtubeId: string
+  youtubeId?: string
   defaultSets?: number
   defaultReps?: number
   defaultRestSec?: number
   defaultDurationSec?: number
+  difficulty?: Difficulty
 }
 
 export interface PlannedSet {
@@ -64,18 +67,13 @@ export interface WorkoutSession {
   focus: MuscleGroup[]
   goal: string
   estimatedMinutes: number
+  actualMinutes?: number
+  kcal?: number
   exercises: PlannedExercise[]
   startedAt?: string
   completedAt?: string
   status: 'planned' | 'in_progress' | 'completed' | 'skipped'
   source: 'ai' | 'manual' | 'template'
-}
-
-export interface ChatMessage {
-  id: string
-  role: 'user' | 'coach'
-  content: string
-  createdAt: string
 }
 
 export interface UserProfile {
@@ -84,11 +82,16 @@ export interface UserProfile {
   experience: 'beginner' | 'intermediate' | 'advanced'
   daysPerWeek: number
   preferredSplit: 'push_pull_legs' | 'upper_lower' | 'full_body' | 'bro_split'
+  bodyWeightKg: number
+}
+
+export interface SuggestInput {
+  focus?: MuscleGroup[]
+  minutes?: number
 }
 
 export interface AppState {
   profile: UserProfile
   sessions: WorkoutSession[]
   activeSessionId: string | null
-  chat: ChatMessage[]
 }

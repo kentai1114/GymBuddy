@@ -7,6 +7,10 @@ export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`
 }
 
+export function localDateKey(day = new Date()): string {
+  return format(day, 'yyyy-MM-dd')
+}
+
 export function formatRelative(iso?: string): string {
   if (!iso) return '尚未訓練'
   return formatDistanceToNow(parseISO(iso), { addSuffix: true, locale: zhTW })
@@ -50,9 +54,12 @@ export function getWeekDays(base = new Date()): Date[] {
 }
 
 export function sessionsOnDay(sessions: WorkoutSession[], day: Date): WorkoutSession[] {
-  return sessions.filter(
-    (s) => s.status === 'completed' && s.completedAt && isSameDay(parseISO(s.completedAt), day),
-  )
+  const key = localDateKey(day)
+  return sessions.filter((s) => {
+    if (s.status !== 'completed') return false
+    if (s.date === key) return true
+    return Boolean(s.completedAt && isSameDay(parseISO(s.completedAt), day))
+  })
 }
 
 export function lastCompleted(sessions: WorkoutSession[]): WorkoutSession | undefined {

@@ -7,27 +7,29 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type {
-  AppState,
-  ChatMessage,
-  PlannedSet,
-  UserProfile,
-  WorkoutSession,
-} from '@/lib/types'
+import type { AppState, PlannedSet, SuggestInput, UserProfile, WorkoutSession } from '@/lib/types'
 import type { SuggestionResult } from '@/lib/ai-suggest'
 import { loadState, saveState } from '@/lib/storage'
-import { suggestWorkoutWithLlm } from '@/lib/ai-suggest'
-import { coachReply } from '@/lib/coach'
-import { uid } from '@/lib/utils'
+import { buildPlannedExercises, suggestWorkoutWithLlm } from '@/lib/ai-suggest'
+import { finishStats } from '@/lib/stats'
+import { localDateKey } from '@/lib/utils'
 
 interface WorkoutContextValue {
   state: AppState
   todaySession: WorkoutSession | null
-  chatLoading: boolean
-  setProfile: (profile: UserProfile) => void
+  completedToday: WorkoutSession | null
+  completedTodayList: WorkoutSession[]
   adoptSuggestion: (session?: WorkoutSession) => Promise<WorkoutSession>
-  generateSuggestion: () => Promise<SuggestionResult>
+  generateSuggestion: (input?: SuggestInput) => Promise<SuggestionResult>
   startSession: (sessionId: string) => void
+  updateProfile: (patch: Partial<UserProfile>) => void
+  updateSet: (
+    sessionId: string,
+    exerciseId: string,
+    setId: string,
+    patch: Partial<PlannedSet>,
+  ) => void
+  replaceExercise: (sessionId: string, plannedId: string, newExerciseId: string) => void
   completeSet: (
     sessionId: string,
     exerciseId: string,
@@ -35,41 +37,45 @@ interface WorkoutContextValue {
     patch?: Partial<PlannedSet>,
   ) => void
   finishSession: (sessionId: string) => void
-  sendChat: (text: string) => Promise<void>
-  clearActive: () => void
-  updateSession: (session: WorkoutSession) => void
+  deleteSession: (sessionId: string) => void
 }
 
 const WorkoutContext = createContext<WorkoutContextValue | null>(null)
 
 export function WorkoutProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(() => loadState())
-  const [chatLoading, setChatLoading] = useState(false)
 
   useEffect(() => {
     saveState(state)
   }, [state])
 
+  const todayKey = localDateKey()
+
+  const completedTodayList = useMemo(() => {
+    return state.sessions.filter((s) => s.status === 'completed' && s.date === todayKey)
+  }, [state.sessions, todayKey])
+
+  const completedToday = completedTodayList[0] ?? null
+
   const todaySession = useMemo(() => {
     if (state.activeSessionId) {
-      return state.sessions.find((s) => s.id === state.activeSessionId) ?? null
+      const active = state.sessions.find((s) => s.id === state.activeSessionId) ?? null
+      if (active && active.status !== 'completed') return active
     }
-    const today = new Date().toISOString().slice(0, 10)
     return (
       state.sessions.find(
         (s) =>
-          s.date === today && (s.status === 'planned' || s.status === 'in_progress'),
+          s.date === todayKey && (s.status === 'planned' || s.status === 'in_progress'),
       ) ?? null
     )
-  }, [state])
+  }, [state, todayKey])
 
-  const setProfile = (profile: UserProfile) => {
-    setState((prev) => ({ ...prev, profile }))
-  }
-
-  const generateSuggestion = useCallback(async () => {
-    return suggestWorkoutWithLlm(state.sessions, state.profile)
-  }, [state.sessions, state.profile])
+  const generateSuggestion = useCallback(
+    async (input?: SuggestInput) => {
+      return suggestWorkoutWithLlm(state.sessions, state.profile, input)
+    },
+    [state.sessions, state.profile],
+  )
 
   const adoptSuggestion = useCallback(
     async (session?: WorkoutSession) => {
@@ -85,14 +91,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     [state.sessions, state.profile],
   )
 
-  const updateSession = (session: WorkoutSession) => {
-    setState((prev) => ({
-      ...prev,
-      sessions: prev.sessions.map((s) => (s.id === session.id ? session : s)),
-    }))
-  }
-
-  const startSession = (sessionId: string) => {
+  const startSession = useCallback((sessionId: string) => {
     setState((prev) => ({
       ...prev,
       activeSessionId: sessionId,
@@ -102,91 +101,133 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
           : s,
       ),
     }))
-  }
+  }, [])
 
-  const completeSet = (
-    sessionId: string,
-    exerciseId: string,
-    setId: string,
-    patch?: Partial<PlannedSet>,
-  ) => {
+  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
     setState((prev) => ({
       ...prev,
+      profile: { ...prev.profile, ...patch },
+    }))
+  }, [])
+
+  const updateSet = useCallback(
+    (sessionId: string, exerciseId: string, setId: string, patch: Partial<PlannedSet>) => {
+      setState((prev) => ({
+        ...prev,
+        sessions: prev.sessions.map((s) => {
+          if (s.id !== sessionId) return s
+          return {
+            ...s,
+            exercises: s.exercises.map((e) => {
+              if (e.id !== exerciseId) return e
+              return {
+                ...e,
+                sets: e.sets.map((set) => (set.id === setId ? { ...set, ...patch } : set)),
+              }
+            }),
+          }
+        }),
+      }))
+    },
+    [],
+  )
+
+  const replaceExercise = useCallback((sessionId: string, plannedId: string, newExerciseId: string) => {
+    setState((prev) => {
+      const built = buildPlannedExercises(
+        [newExerciseId],
+        prev.sessions,
+        prev.profile,
+      )[0]
+      return {
+        ...prev,
+        sessions: prev.sessions.map((s) => {
+          if (s.id !== sessionId) return s
+          return {
+            ...s,
+            exercises: s.exercises.map((e) =>
+              e.id === plannedId ? { ...built, id: e.id } : e,
+            ),
+          }
+        }),
+      }
+    })
+  }, [])
+
+  const completeSet = useCallback(
+    (
+      sessionId: string,
+      exerciseId: string,
+      setId: string,
+      patch?: Partial<PlannedSet>,
+    ) => {
+      setState((prev) => ({
+        ...prev,
+        sessions: prev.sessions.map((s) => {
+          if (s.id !== sessionId) return s
+          return {
+            ...s,
+            exercises: s.exercises.map((e) => {
+              if (e.id !== exerciseId) return e
+              return {
+                ...e,
+                sets: e.sets.map((set) =>
+                  set.id === setId
+                    ? {
+                        ...set,
+                        completed: true,
+                        actualReps: patch?.actualReps ?? set.targetReps,
+                        actualWeight: patch?.actualWeight ?? set.targetWeight,
+                        actualDurationSec: patch?.actualDurationSec ?? set.targetDurationSec,
+                      }
+                    : set,
+                ),
+              }
+            }),
+          }
+        }),
+      }))
+    },
+    [],
+  )
+
+  const finishSession = useCallback((sessionId: string) => {
+    setState((prev) => ({
+      ...prev,
+      activeSessionId: null,
       sessions: prev.sessions.map((s) => {
         if (s.id !== sessionId) return s
         return {
           ...s,
-          exercises: s.exercises.map((e) => {
-            if (e.id !== exerciseId) return e
-            return {
-              ...e,
-              sets: e.sets.map((set) =>
-                set.id === setId
-                  ? {
-                      ...set,
-                      completed: true,
-                      actualReps: patch?.actualReps ?? set.targetReps,
-                      actualWeight: patch?.actualWeight ?? set.targetWeight,
-                      actualDurationSec: patch?.actualDurationSec ?? set.targetDurationSec,
-                    }
-                  : set,
-              ),
-            }
-          }),
+          status: 'completed',
+          ...finishStats(s, prev.profile.bodyWeightKg),
         }
       }),
     }))
-  }
+  }, [])
 
-  const finishSession = (sessionId: string) => {
+  const deleteSession = useCallback((sessionId: string) => {
     setState((prev) => ({
       ...prev,
-      activeSessionId: null,
-      sessions: prev.sessions.map((s) =>
-        s.id === sessionId
-          ? { ...s, status: 'completed', completedAt: new Date().toISOString() }
-          : s,
-      ),
+      activeSessionId: prev.activeSessionId === sessionId ? null : prev.activeSessionId,
+      sessions: prev.sessions.filter((s) => s.id !== sessionId),
     }))
-  }
-
-  const clearActive = () => {
-    setState((prev) => ({ ...prev, activeSessionId: null }))
-  }
-
-  const sendChat = useCallback(async (text: string) => {
-    const userMsg: ChatMessage = {
-      id: uid('msg'),
-      role: 'user',
-      content: text,
-      createdAt: new Date().toISOString(),
-    }
-
-    setChatLoading(true)
-    setState((prev) => {
-      const snapshot: AppState = { ...prev, chat: [...prev.chat, userMsg] }
-      void coachReply(text, snapshot)
-        .then((reply) => {
-          setState((inner) => ({ ...inner, chat: [...inner.chat, reply] }))
-        })
-        .finally(() => setChatLoading(false))
-      return snapshot
-    })
   }, [])
 
   const value: WorkoutContextValue = {
     state,
     todaySession,
-    chatLoading,
-    setProfile,
+    completedToday,
+    completedTodayList,
     adoptSuggestion,
     generateSuggestion,
     startSession,
+    updateProfile,
+    updateSet,
+    replaceExercise,
     completeSet,
     finishSession,
-    sendChat,
-    clearActive,
-    updateSession,
+    deleteSession,
   }
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>

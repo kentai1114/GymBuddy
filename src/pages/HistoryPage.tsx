@@ -1,101 +1,169 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+  endOfWeek,
+} from 'date-fns'
+import { zhTW } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
-import { getExercise } from '@/data/exercises'
-import { formatDateTime, muscleLabel } from '@/lib/utils'
+import { APP_MARK } from '@/lib/brand'
+import { SessionReview } from '@/components/SessionReview'
+import { summarizeSessions } from '@/lib/stats'
+import { formatMinutes, sessionsOnDay } from '@/lib/utils'
+
+const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日']
 
 export function HistoryPage() {
-  const { state } = useWorkout()
+  const { state, deleteSession } = useWorkout()
+  const [cursor, setCursor] = useState(() => startOfMonth(new Date()))
+  const [selected, setSelected] = useState(() => new Date())
+  const [scope, setScope] = useState<'week' | 'month'>('week')
 
-  const sessions = useMemo(
-    () =>
-      [...state.sessions]
-        .filter((s) => s.status === 'completed')
-        .sort((a, b) => (b.completedAt! > a.completedAt! ? 1 : -1)),
+  const completed = useMemo(
+    () => state.sessions.filter((s) => s.status === 'completed'),
     [state.sessions],
   )
+
+  const days = useMemo(() => {
+    const start = startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 })
+    const end = endOfWeek(endOfMonth(cursor), { weekStartsOn: 1 })
+    return eachDayOfInterval({ start, end })
+  }, [cursor])
+
+  const weekDays = useMemo(() => {
+    const start = startOfWeek(selected, { weekStartsOn: 1 })
+    const end = endOfWeek(selected, { weekStartsOn: 1 })
+    return eachDayOfInterval({ start, end })
+  }, [selected])
+
+  const monthSessions = useMemo(
+    () =>
+      completed.filter((s) => {
+        const d = new Date(`${s.date}T12:00:00`)
+        return isSameMonth(d, cursor)
+      }),
+    [completed, cursor],
+  )
+
+  const weekSessions = useMemo(
+    () => weekDays.flatMap((day) => sessionsOnDay(completed, day)),
+    [completed, weekDays],
+  )
+
+  const scoped = scope === 'week' ? weekSessions : monthSessions
+  const stats = summarizeSessions(scoped, state.profile)
+  const daySessions = sessionsOnDay(completed, selected)
 
   return (
     <div className="page stack">
       <header>
-        <p className="brand-mark">FORGE</p>
-        <h1 style={{ marginTop: 8 }}>Workout History</h1>
-        <p className="muted" style={{ marginTop: 8 }}>
-          自動累積每一次訓練，俾 AI 知道你之前做過咩。
-        </p>
+        <p className="brand-mark">{APP_MARK}</p>
+        <h1 style={{ marginTop: 6 }}>紀錄</h1>
+        <p className="page-kicker">撳日曆睇當日做咗咩</p>
       </header>
 
-      {!sessions.length && (
-        <div className="panel empty">暫未有完成記錄。完成一堂訓練後會顯示喺度。</div>
-      )}
+      <div className="row" style={{ gap: 8 }}>
+        <button
+          className={`filter-chip${scope === 'week' ? ' active' : ''}`}
+          onClick={() => setScope('week')}
+        >
+          本週
+        </button>
+        <button
+          className={`filter-chip${scope === 'month' ? ' active' : ''}`}
+          onClick={() => setScope('month')}
+        >
+          本月
+        </button>
+      </div>
 
-      {sessions.map((session) => {
-        const volume = session.exercises.reduce((sum, e) => {
-          return (
-            sum +
-            e.sets.reduce((s, set) => {
-              if (!set.completed) return s
-              const reps = set.actualReps ?? 0
-              const weight = set.actualWeight ?? 0
-              return s + reps * weight
-            }, 0)
-          )
-        }, 0)
+      <section className="stat-grid">
+        <div className="stat">
+          <span className="muted">去咗幾次</span>
+          <strong>{stats.count} 堂</strong>
+        </div>
+        <div className="stat">
+          <span className="muted">時間</span>
+          <strong>{formatMinutes(stats.minutes)}</strong>
+        </div>
+        <div className="stat">
+          <span className="muted">消耗</span>
+          <strong>{stats.kcal.toLocaleString()} kcal</strong>
+        </div>
+        <div className="stat">
+          <span className="muted">訓練量</span>
+          <strong>{Math.round(stats.volumeKg).toLocaleString()} kg</strong>
+        </div>
+      </section>
 
-        return (
-          <article key={session.id} className="panel">
-            <div className="row space-between">
-              <div>
-                <h3>{session.title}</h3>
-                <p className="muted" style={{ margin: '6px 0 0', fontSize: '0.85rem' }}>
-                  {session.completedAt ? formatDateTime(session.completedAt) : session.date}
-                </p>
-              </div>
-              <span className="chip">{muscleLabel(session.focus)}</span>
-            </div>
+      <section className="panel">
+        <div className="row space-between" style={{ marginBottom: 12 }}>
+          <button className="chip" onClick={() => setCursor((d) => addMonths(d, -1))} aria-label="上個月">
+            <ChevronLeft size={16} />
+          </button>
+          <h3>{format(cursor, 'yyyy年M月', { locale: zhTW })}</h3>
+          <button className="chip" onClick={() => setCursor((d) => addMonths(d, 1))} aria-label="下個月">
+            <ChevronRight size={16} />
+          </button>
+        </div>
 
-            <p style={{ margin: '12px 0 0' }}>{session.goal}</p>
+        <div className="month-weekdays">
+          {WEEKDAYS.map((d) => (
+            <span key={d}>{d}</span>
+          ))}
+        </div>
+        <div className="month-grid">
+          {days.map((day) => {
+            const items = sessionsOnDay(completed, day)
+            const inMonth = isSameMonth(day, cursor)
+            const isToday = isSameDay(day, new Date())
+            const isSelected = isSameDay(day, selected)
+            return (
+              <button
+                key={day.toISOString()}
+                type="button"
+                className={`month-day${items.length ? ' done' : ''}${isToday ? ' today' : ''}${
+                  isSelected ? ' selected' : ''
+                }${!inMonth ? ' muted-day' : ''}`}
+                onClick={() => {
+                  setSelected(day)
+                  if (!inMonth) setCursor(startOfMonth(day))
+                }}
+              >
+                <span>{format(day, 'd')}</span>
+                {items.length > 0 && <i />}
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
-            <div className="stat-grid" style={{ marginTop: 14 }}>
-              <div className="stat">
-                <span className="muted">動作</span>
-                <strong>{session.exercises.length}</strong>
-              </div>
-              <div className="stat">
-                <span className="muted">估計容量</span>
-                <strong style={{ fontSize: '1.1rem' }}>{Math.round(volume)} kg</strong>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              {session.exercises.map((pe) => {
-                const ex = getExercise(pe.exerciseId)
-                const doneSets = pe.sets.filter((s) => s.completed).length
-                return (
-                  <div key={pe.id} className="list-item">
-                    <div className="badge" style={{ fontSize: '0.75rem' }}>
-                      {doneSets}
-                    </div>
-                    <div>
-                      <strong>{ex?.nameZh ?? pe.exerciseId}</strong>
-                      <p className="muted" style={{ margin: '4px 0 0', fontSize: '0.82rem' }}>
-                        {pe.kind === 'cardio'
-                          ? `${Math.round((pe.sets[0]?.actualDurationSec ?? 0) / 60)} 分鐘`
-                          : pe.sets
-                              .filter((s) => s.completed)
-                              .map(
-                                (s) =>
-                                  `${s.actualWeight ?? '-'}kg × ${s.actualReps ?? '-'}`,
-                              )
-                              .join(' · ')}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </article>
-        )
-      })}
+      <section className="panel">
+        <h3 style={{ marginBottom: 10 }}>
+          {format(selected, 'M月d日 EEE', { locale: zhTW })}
+        </h3>
+        {!daySessions.length && (
+          <p className="muted" style={{ margin: 0 }}>
+            呢日冇去 gym。
+          </p>
+        )}
+        {daySessions.map((session) => (
+          <SessionReview
+            key={session.id}
+            session={session}
+            bodyWeightKg={state.profile.bodyWeightKg}
+            nested
+            onDelete={() => deleteSession(session.id)}
+          />
+        ))}
+      </section>
     </div>
   )
 }

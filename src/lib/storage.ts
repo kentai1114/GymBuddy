@@ -1,15 +1,23 @@
 import type { AppState } from './types'
 import { createSeedState } from './seed'
 
-const KEY = 'forge-gym-app-v1'
+const KEY = 'gymbuddy-gym-app-v3'
 
 export function loadState(): AppState {
+  const seed = createSeedState()
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return createSeedState()
-    return JSON.parse(raw) as AppState
+    if (!raw) return seed
+    const parsed = JSON.parse(raw) as Partial<AppState>
+    return {
+      ...seed,
+      ...parsed,
+      profile: { ...seed.profile, ...(parsed.profile ?? {}) },
+      sessions: parsed.sessions ?? [],
+      activeSessionId: parsed.activeSessionId ?? null,
+    }
   } catch {
-    return createSeedState()
+    return seed
   }
 }
 
