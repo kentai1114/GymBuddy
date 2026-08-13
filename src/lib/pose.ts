@@ -289,15 +289,26 @@ export const MOTIONS: Record<MotionId, MotionDef> = {
       { torso: 26, leg: [-45, 155], arm: [-118, -60] },
     ],
   },
+  /** Kneeling rope crunch — not the lying floor crunch. */
+  cablecrunch: {
+    dur: 1.55,
+    root: [52, 74],
+    gear: 'handle',
+    props: ['floor', 'cable-high'],
+    poses: [
+      { torso: -8, head: -6, leg: [-28, 118], arm: [140, 130], ank: 18 },
+      { torso: 34, head: 10, leg: [-24, 114], arm: [140, 130], ank: 18 },
+    ],
+  },
   twist: {
     view: 'front',
-    dur: 1.5,
-    root: [46, 72],
+    dur: 1.35,
+    root: [50, 72],
     gear: 'ball',
     props: ['floor'],
     poses: [
-      { torso: -14, leg: [-80, 110], leg2: [-80, 110], arm: [-64, -34], arm2: [-64, -34] },
-      { torso: -14, leg: [-80, 110], leg2: [-80, 110], arm: [64, 34], arm2: [64, 34] },
+      { torso: -22, head: -10, leg: [-70, 125], arm: [8, -170] },
+      { torso: 22, head: 10, leg: [-70, 125], arm: [8, -170] },
     ],
   },
   deadbug: {

@@ -12,7 +12,7 @@ import type { SuggestionResult } from '@/lib/ai-suggest'
 import { loadState, saveState } from '@/lib/storage'
 import { buildPlannedExercises, suggestWorkoutWithLlm } from '@/lib/ai-suggest'
 import { finishStats } from '@/lib/stats'
-import { localDateKey } from '@/lib/utils'
+import { localDateKey, uid } from '@/lib/utils'
 import { normalizeProfile } from '@/lib/seed'
 
 interface WorkoutContextValue {
@@ -31,6 +31,7 @@ interface WorkoutContextValue {
     patch: Partial<PlannedSet>,
   ) => void
   replaceExercise: (sessionId: string, plannedId: string, newExerciseId: string) => void
+  addSet: (sessionId: string, plannedId: string) => void
   completeSet: (
     sessionId: string,
     exerciseId: string,
@@ -155,6 +156,30 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const addSet = useCallback((sessionId: string, plannedId: string) => {
+    setState((prev) => ({
+      ...prev,
+      sessions: prev.sessions.map((s) => {
+        if (s.id !== sessionId) return s
+        return {
+          ...s,
+          exercises: s.exercises.map((e) => {
+            if (e.id !== plannedId) return e
+            const last = e.sets[e.sets.length - 1]
+            const next: PlannedSet = {
+              id: uid('set'),
+              targetReps: last?.targetReps,
+              targetWeight: last?.targetWeight,
+              targetDurationSec: last?.targetDurationSec,
+              completed: false,
+            }
+            return { ...e, sets: [...e.sets, next] }
+          }),
+        }
+      }),
+    }))
+  }, [])
+
   const completeSet = useCallback(
     (
       sessionId: string,
@@ -226,6 +251,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     updateProfile,
     updateSet,
     replaceExercise,
+    addSet,
     completeSet,
     finishSession,
     deleteSession,

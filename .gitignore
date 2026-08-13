@@ -7,13 +7,3 @@ dist-ssr
 .env.*
 !.env.example
 *.tsbuildinfo
-
-# Capacitor / native
-ios/App/Pods
-ios/App/build
-ios/DerivedData
-android/.gradle
-android/app/build
-android/build
-*.keystore
-local.properties

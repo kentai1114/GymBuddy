@@ -20,6 +20,7 @@ export type MotionId =
   | 'wallsit'
   | 'legraise'
   | 'crunch'
+  | 'cablecrunch'
   | 'twist'
   | 'deadbug'
   | 'birddog'
@@ -96,7 +97,7 @@ const MOTION_BY_ID: Record<string, MotionId> = {
   'wall-sit': 'wallsit',
   'hanging-leg-raise': 'legraise',
   'lying-leg-raise': 'legraise',
-  'cable-crunch': 'crunch',
+  'cable-crunch': 'cablecrunch',
   'crunch': 'crunch',
   'bicycle-crunch': 'crunch',
   'russian-twist': 'twist',

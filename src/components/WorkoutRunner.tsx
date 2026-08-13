@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { differenceInSeconds, parseISO } from 'date-fns'
-import { Check, SkipForward } from 'lucide-react'
+import { Check, MoreHorizontal, SkipForward, X } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
 import { getExercise } from '@/data/exercises'
-import { ExerciseCard, prescriptionText } from '@/components/ExerciseCard'
-import { SwapSheet } from '@/components/SwapSheet'
+import { ExerciseHero, ExerciseActions } from '@/components/ExerciseSheet'
 import { SetsTable } from '@/components/SetsTable'
 import { HoldTimer } from '@/components/HoldTimer'
+import { SwapSheet } from '@/components/SwapSheet'
 import { formatSeconds, sessionProgress } from '@/lib/utils'
 import type { PlannedSet, WorkoutSession } from '@/lib/types'
 
 type Phase = 'work' | 'rest'
 
 export function WorkoutRunner({ session }: { session: WorkoutSession }) {
-  const { completeSet, finishSession, updateSet, replaceExercise } = useWorkout()
-  const [swapPeId, setSwapPeId] = useState<string | null>(null)
+  const { completeSet, finishSession, updateSet, replaceExercise, addSet } = useWorkout()
+  const [swapOpen, setSwapOpen] = useState(false)
+  const [howTo, setHowTo] = useState(false)
+  const [menu, setMenu] = useState(false)
 
   const flat = useMemo(
     () =>
@@ -54,6 +56,8 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
     setPhase('work')
     setRestLeft(0)
     setHoldRunning(false)
+    setHowTo(false)
+    setSwapOpen(false)
     if (current && (current.ex.kind === 'cardio' || current.ex.kind === 'timed')) {
       setHoldLeft(current.set.targetDurationSec ?? (current.ex.kind === 'cardio' ? 300 : 45))
     }
@@ -121,12 +125,9 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
   }
 
   const progress = sessionProgress(session)
-  const restTotal = current?.ex.restSec || 75
-  const restProgress =
-    phase === 'rest' && restTotal > 0 ? ((restTotal - restLeft) / restTotal) * 100 : 0
   const holdTotal = current?.set.targetDurationSec ?? 45
 
-  if (!current) {
+  if (!current || !currentExercise) {
     return (
       <section className="panel empty">
         <h3>搞掂</h3>
@@ -136,87 +137,78 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
   }
 
   return (
-    <div className="stack">
-      <section className="panel">
-        <div className="row space-between">
-          <div>
-            <p className="eyebrow">進行緊</p>
-            <p className="workout-clock">{formatSeconds(elapsed)}</p>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <p className="muted" style={{ margin: 0, fontSize: '0.8rem' }}>
-              {current.exIndex + 1}/{session.exercises.length} 動作
-            </p>
-            <p className="muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-              {progress}%
-            </p>
-          </div>
-        </div>
-        <div className="progress-bar" style={{ marginTop: 12 }}>
+    <div className="lift-page">
+      <ExerciseHero
+        exercise={currentExercise}
+        kicker={`${current.exIndex + 1}/${session.exercises.length} · ${formatSeconds(elapsed)}`}
+        howToOpen={howTo}
+        onToggleHowTo={() => setHowTo((v) => !v)}
+      />
+      <div className="lift-tools">
+        <div className="progress-bar">
           <span style={{ width: `${progress}%` }} />
         </div>
-      </section>
-
-      {currentExercise && (
-        <div className="ex-slot">
-          <ExerciseCard
-            exercise={currentExercise}
-            subtitle={prescriptionText(current.ex)}
-            active
-            defaultOpen
-            hideSets
-            swapping={swapPeId === current.ex.id}
-            onSwap={() => setSwapPeId(swapPeId === current.ex.id ? null : current.ex.id)}
-          />
-          {swapPeId === current.ex.id && (
-            <SwapSheet
-              currentId={current.ex.exerciseId}
-              onClose={() => setSwapPeId(null)}
-              onPick={(id) => {
-                replaceExercise(session.id, current.ex.id, id)
-                setSwapPeId(null)
-              }}
-            />
-          )}
+        <button type="button" className="icon-btn" onClick={() => setMenu((v) => !v)} aria-label="更多">
+          {menu ? <X size={18} /> : <MoreHorizontal size={18} />}
+        </button>
+      </div>
+      {menu && (
+        <div className="lift-menu">
+          <button type="button" className="btn btn-danger btn-block" onClick={() => finishSession(session.id)}>
+            結束訓練
+          </button>
         </div>
       )}
-
-      <section className="panel sets-panel">
-        <p className="eyebrow">{usesTimer ? '時間' : 'kg / reps'}</p>
-        <div className={usesTimer ? 'work-split' : undefined}>
-          <SetsTable
-            pe={current.ex}
-            highlightSetId={current.set.id}
-            onPatch={(setId, patch) => patchSet(setId, patch)}
-            onCurrentDuration={usesTimer ? setHoldLeft : undefined}
+      {howTo && (
+        <ol className="howto-steps sheet-howto">
+          {currentExercise.instructions.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ol>
+      )}
+      <ExerciseActions
+        restSec={current.ex.kind === 'cardio' ? undefined : current.ex.restSec}
+        onReplace={() => setSwapOpen((v) => !v)}
+      />
+      {swapOpen && (
+        <SwapSheet
+          currentId={current.ex.exerciseId}
+          onClose={() => setSwapOpen(false)}
+          onPick={(id) => {
+            replaceExercise(session.id, current.ex.id, id)
+            setSwapOpen(false)
+          }}
+        />
+      )}
+      <div className="sheet-sets">
+        <SetsTable
+          pe={current.ex}
+          highlightSetId={current.set.id}
+          onPatch={(setId, patch) => patchSet(setId, patch)}
+          onAddSet={() => addSet(session.id, current.ex.id)}
+          onCurrentDuration={usesTimer ? setHoldLeft : undefined}
+        />
+        {usesTimer && (
+          <HoldTimer
+            left={holdLeft}
+            total={holdTotal}
+            running={holdRunning}
+            onToggle={() => {
+              if (holdLeft <= 0) setHoldLeft(holdTotal)
+              setHoldRunning((v) => !v)
+            }}
           />
-          {usesTimer && (
-            <HoldTimer
-              left={holdLeft}
-              total={holdTotal}
-              running={holdRunning}
-              onToggle={() => {
-                if (holdLeft <= 0) setHoldLeft(holdTotal)
-                setHoldRunning((v) => !v)
-              }}
-            />
-          )}
-        </div>
-      </section>
+        )}
+      </div>
 
       {phase === 'rest' && (
-        <section className="panel panel-accent">
+        <section className="rest-overlay">
           <p className="eyebrow">休息</p>
-          <div className="timer-ring" style={{ ['--progress' as string]: `${restProgress}%` }}>
-            <div style={{ textAlign: 'center' }}>
-              <strong>{formatSeconds(restLeft)}</strong>
-              <p className="muted" style={{ margin: 0 }}>
-                下一組
-              </p>
-            </div>
-          </div>
+          <strong>{formatSeconds(restLeft)}</strong>
+          <p className="muted">下一組</p>
           <button
-            className="btn btn-ghost btn-block"
+            type="button"
+            className="btn btn-ghost"
             onClick={() => {
               setPhase('work')
               setRestLeft(0)
@@ -227,57 +219,17 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
         </section>
       )}
 
-      <div className="sticky-cta">
+      <div className="sticky-cta lift-cta">
         <button
-          className="btn btn-primary btn-block"
+          type="button"
+          className="btn btn-primary btn-block display-btn"
           onClick={onCompleteSet}
           disabled={phase === 'rest'}
         >
           <Check size={18} />
           {usesTimer ? '完成呢段' : '完成呢組'}
         </button>
-        <button className="btn btn-danger btn-block" onClick={() => finishSession(session.id)}>
-          結束訓練
-        </button>
       </div>
-
-      {session.exercises.length > 1 && (
-        <div className="ex-list">
-          {session.exercises.map((pe, i) => {
-            const ex = getExercise(pe.exerciseId)
-            if (!ex || pe.id === current.ex.id) return null
-            const done = pe.sets.every((s) => s.completed)
-            const swapping = swapPeId === pe.id
-            return (
-              <div key={pe.id} className="ex-slot">
-                <ExerciseCard
-                  exercise={ex}
-                  subtitle={`${i + 1}. ${prescriptionText(pe)}`}
-                  done={done}
-                  planned={pe}
-                  swapping={swapping}
-                  onSwap={done ? undefined : () => setSwapPeId(swapping ? null : pe.id)}
-                  onUpdateSet={
-                    done
-                      ? undefined
-                      : (setId, patch) => updateSet(session.id, pe.id, setId, patch)
-                  }
-                />
-                {swapping && (
-                  <SwapSheet
-                    currentId={pe.exerciseId}
-                    onClose={() => setSwapPeId(null)}
-                    onPick={(id) => {
-                      replaceExercise(session.id, pe.id, id)
-                      setSwapPeId(null)
-                    }}
-                  />
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }

@@ -1,19 +1,18 @@
 import { format } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Loader2, Settings, Sparkles } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, Loader2, Sparkles } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
 import { WorkoutRunner } from '@/components/WorkoutRunner'
-import { ExerciseCard, prescriptionText } from '@/components/ExerciseCard'
+import { ExerciseRow } from '@/components/ExerciseRow'
+import { ExerciseSheet } from '@/components/ExerciseSheet'
 import { SessionReview } from '@/components/SessionReview'
 import { SuggestForm } from '@/components/SuggestForm'
-import { RecoveryStrip } from '@/components/RecoveryStrip'
 import { SwapSheet } from '@/components/SwapSheet'
-import { APP_MARK } from '@/lib/brand'
 import { getExercise } from '@/data/exercises'
 import { sessionKcal, sessionMinutes, sessionVolumeKg } from '@/lib/stats'
-import { formatMinutes, muscleLabel } from '@/lib/utils'
+import { formatMinutes } from '@/lib/utils'
 import type { MuscleGroup, SuggestInput } from '@/lib/types'
 
 export function HomePage() {
@@ -26,6 +25,7 @@ export function HomePage() {
     startSession,
     replaceExercise,
     updateSet,
+    addSet,
     deleteSession,
   } = useWorkout()
   const [loading, setLoading] = useState(false)
@@ -33,6 +33,7 @@ export function HomePage() {
   const [focus, setFocus] = useState<MuscleGroup[]>([])
   const [minutes, setMinutes] = useState(60)
   const [reason, setReason] = useState('')
+  const [openPeId, setOpenPeId] = useState<string | null>(null)
   const [swapPeId, setSwapPeId] = useState<string | null>(null)
 
   const runSuggest = async (input?: SuggestInput) => {
@@ -42,6 +43,7 @@ export function HomePage() {
       await adoptSuggestion(result.session)
       setReason(result.reason)
       setCustomizing(false)
+      setOpenPeId(null)
     } finally {
       setLoading(false)
     }
@@ -54,51 +56,40 @@ export function HomePage() {
   }
 
   if (todaySession?.status === 'in_progress') {
-    return (
-      <div className="page stack">
-        <Header kicker="訓練中" />
-        <WorkoutRunner session={todaySession} />
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="page stack">
-        <Header />
-        <section className="panel empty">
-          <Loader2 size={28} className="spin" />
-          <h3 style={{ marginTop: 14 }}>排緊課表</h3>
-          <p>按你揀嘅部位同時間嚟砌一套動作。</p>
-        </section>
-      </div>
-    )
+    return <WorkoutRunner session={todaySession} />
   }
 
   const showPlan = todaySession?.status === 'planned' && !customizing
   const showReview = completedTodayList.length > 0 && !showPlan && !customizing
   const showForm = !showPlan && (!showReview || customizing)
+  const openPe = todaySession?.exercises.find((pe) => pe.id === openPeId)
+  const openEx = openPe ? getExercise(openPe.exerciseId) : undefined
 
   return (
     <div className="page stack">
-      <Header />
+      <HomeHeader name={state.profile.name} />
 
-      {showForm && (
-        <>
-          <RecoveryStrip sessions={state.sessions} />
-          <SuggestForm
-            focus={focus}
-            minutes={minutes}
-            loading={loading}
-            onToggleMuscle={toggleMuscle}
-            onMinutes={setMinutes}
-            onSuggest={() => void runSuggest({ focus, minutes })}
-            onAuto={() => void runSuggest({ minutes })}
-          />
-        </>
+      {loading && (
+        <section className="panel empty">
+          <Loader2 size={28} className="spin" />
+          <h3 style={{ marginTop: 14 }}>排緊課表</h3>
+          <p>按你揀嘅部位同時間嚟砌一套動作。</p>
+        </section>
       )}
 
-      {showReview && (
+      {!loading && showForm && (
+        <SuggestForm
+          focus={focus}
+          minutes={minutes}
+          loading={loading}
+          onToggleMuscle={toggleMuscle}
+          onMinutes={setMinutes}
+          onSuggest={() => void runSuggest({ focus, minutes })}
+          onAuto={() => void runSuggest({ minutes })}
+        />
+      )}
+
+      {!loading && showReview && (
         <TodayRecap
           sessions={completedTodayList}
           bodyWeightKg={state.profile.bodyWeightKg}
@@ -107,67 +98,131 @@ export function HomePage() {
         />
       )}
 
-      {showPlan && todaySession && (
-        <>
-          <section className="panel hero-today">
-            <p className="eyebrow">今日訓練</p>
-            <h1>{todaySession.title}</h1>
-            <p className="muted" style={{ margin: 0 }}>
-              {muscleLabel(todaySession.focus)} · {formatMinutes(todaySession.estimatedMinutes)} ·{' '}
-              {todaySession.exercises.length} 個動作
-            </p>
-            {reason && (
-              <p className="muted" style={{ margin: '4px 0 0', lineHeight: 1.45, fontSize: '0.88rem' }}>
-                {reason}
-              </p>
-            )}
+      {!loading && showPlan && todaySession && (
+        <UpNext
+          session={todaySession}
+          profileName={state.profile.name}
+          reason={reason}
+          onStart={() => startSession(todaySession.id)}
+          onSwitch={() =>
+            void runSuggest({
+              focus: todaySession.focus.length ? todaySession.focus : undefined,
+              minutes: todaySession.estimatedMinutes,
+            })
+          }
+          onCustomize={() => {
+            setFocus(todaySession.focus)
+            setMinutes(todaySession.estimatedMinutes)
+            setCustomizing(true)
+          }}
+          onOpen={setOpenPeId}
+          onMore={setSwapPeId}
+        />
+      )}
+
+      {showPlan && todaySession && openPe && openEx && (
+        <ExerciseSheet
+          exercise={openEx}
+          planned={openPe}
+          onClose={() => setOpenPeId(null)}
+          onPatch={(setId, patch) => updateSet(todaySession.id, openPe.id, setId, patch)}
+          onAddSet={() => addSet(todaySession.id, openPe.id)}
+          onReplace={(id) => replaceExercise(todaySession.id, openPe.id, id)}
+        />
+      )}
+
+      {showPlan && todaySession && swapPeId && (
+        <div className="sheet-root">
+          <button type="button" className="sheet-backdrop" onClick={() => setSwapPeId(null)} />
+          <section className="sheet-card sheet-card-compact">
+            <SwapSheet
+              currentId={
+                todaySession.exercises.find((pe) => pe.id === swapPeId)?.exerciseId ?? ''
+              }
+              onClose={() => setSwapPeId(null)}
+              onPick={(id) => {
+                replaceExercise(todaySession.id, swapPeId, id)
+                setSwapPeId(null)
+              }}
+            />
           </section>
-
-          <div className="ex-list">
-            {todaySession.exercises.map((pe) => {
-              const ex = getExercise(pe.exerciseId)
-              if (!ex) return null
-              const swapping = swapPeId === pe.id
-              return (
-                <div key={pe.id} className="ex-slot" id={swapping ? `swap-${pe.id}` : undefined}>
-                  <ExerciseCard
-                    exercise={ex}
-                    subtitle={prescriptionText(pe)}
-                    planned={pe}
-                    swapping={swapping}
-                    onSwap={() => setSwapPeId(swapping ? null : pe.id)}
-                    onUpdateSet={(setId, patch) => updateSet(todaySession.id, pe.id, setId, patch)}
-                  />
-                  {swapping && (
-                    <SwapSheet
-                      currentId={pe.exerciseId}
-                      onClose={() => setSwapPeId(null)}
-                      onPick={(id) => {
-                        replaceExercise(todaySession.id, pe.id, id)
-                        setSwapPeId(null)
-                      }}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="sticky-cta">
-            <button
-              type="button"
-              className="btn btn-primary btn-block"
-              onClick={() => startSession(todaySession.id)}
-            >
-              開始訓練
-            </button>
-            <button type="button" className="btn btn-ghost btn-block" onClick={() => setCustomizing(true)}>
-              改部位／時間
-            </button>
-          </div>
-        </>
+        </div>
       )}
     </div>
+  )
+}
+
+function UpNext({
+  session,
+  profileName,
+  reason,
+  onStart,
+  onSwitch,
+  onCustomize,
+  onOpen,
+  onMore,
+}: {
+  session: NonNullable<ReturnType<typeof useWorkout>['todaySession']>
+  profileName: string
+  reason: string
+  onStart: () => void
+  onSwitch: () => void
+  onCustomize: () => void
+  onOpen: (id: string) => void
+  onMore: (id: string) => void
+}) {
+  const muscles = useMemo(() => new Set(session.focus), [session.focus])
+
+  return (
+    <>
+      <section className="up-next-head">
+        <div className="row space-between" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <h1 className="display">下一步</h1>
+            <p className="muted" style={{ margin: '6px 0 0' }}>
+              {session.exercises.length} 個動作 · {muscles.size || session.focus.length} 個肌群
+            </p>
+          </div>
+          <button type="button" className="btn-switch" onClick={onSwitch}>
+            <ArrowLeftRight size={14} />
+            換一套
+          </button>
+        </div>
+        <div className="plan-pills">
+          <button type="button" className="plan-pill" onClick={onCustomize}>
+            {minutesShort(session.estimatedMinutes)}
+            <ChevronDown size={14} />
+          </button>
+          <Link to="/settings" className="plan-pill">
+            {profileName.trim() || '個人'}
+            <ChevronDown size={14} />
+          </Link>
+        </div>
+        {reason && <p className="plan-reason">{reason}</p>}
+      </section>
+
+      <div className="ex-timeline">
+        {session.exercises.map((pe) => {
+          const ex = getExercise(pe.exerciseId)
+          if (!ex) return null
+          return (
+            <ExerciseRow
+              key={pe.id}
+              exercise={ex}
+              planned={pe}
+              onOpen={() => onOpen(pe.id)}
+              onMore={() => onMore(pe.id)}
+            />
+          )
+        })}
+      </div>
+
+      <div className="sticky-cta sticky-cta-row">
+        <button type="button" className="btn btn-primary btn-block display-btn" onClick={onStart}>
+          開始訓練
+        </button>
+      </div>
+    </>
   )
 }
 
@@ -188,10 +243,9 @@ function TodayRecap({
 
   return (
     <>
-      <section className="panel hero-today">
-        <p className="eyebrow">搞掂</p>
-        <h1>今日訓練</h1>
-        <p className="muted" style={{ margin: 0 }}>
+      <section className="up-next-head">
+        <h1 className="display">搞掂</h1>
+        <p className="muted" style={{ margin: '6px 0 0' }}>
           {sessions.length > 1 ? `完成 ${sessions.length} 堂` : sessions[0]?.title}
         </p>
       </section>
@@ -218,7 +272,7 @@ function TodayRecap({
         />
       ))}
       <div className="sticky-cta">
-        <button type="button" className="btn btn-primary btn-block" onClick={onAnother}>
+        <button type="button" className="btn btn-primary btn-block display-btn" onClick={onAnother}>
           <Sparkles size={16} />
           再排一堂
         </button>
@@ -230,18 +284,30 @@ function TodayRecap({
   )
 }
 
-function Header({ kicker }: { kicker?: string }) {
+function HomeHeader({ name }: { name: string }) {
   return (
-    <header className="row space-between">
-      <div>
-        <p className="brand-mark">{APP_MARK}</p>
-        <p className="page-kicker">
-          {kicker ?? format(new Date(), 'M月d日 EEEE', { locale: zhTW })}
-        </p>
-      </div>
-      <Link to="/settings" className="chip" aria-label="設定">
-        <Settings size={16} />
+    <header className="home-top">
+      <Link to="/settings" className="avatar" aria-label="設定">
+        {initials(name)}
       </Link>
+      <div>
+        <p className="brand-mark">我的計劃</p>
+        <p className="page-kicker">{format(new Date(), 'M月d日 EEEE', { locale: zhTW })}</p>
+      </div>
     </header>
   )
+}
+
+function initials(name: string) {
+  const trimmed = name.trim()
+  if (!trimmed) return 'GB'
+  const parts = trimmed.split(/\s+/)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
+}
+
+function minutesShort(mins: number) {
+  if (mins === 90) return '1.5h'
+  if (mins % 60 === 0) return `${mins / 60}h`
+  return `${mins}m`
 }

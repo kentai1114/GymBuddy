@@ -1,7 +1,5 @@
-import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { Cpu, ExternalLink, KeyRound, Save, User } from 'lucide-react'
-import { APP_MARK } from '@/lib/brand'
 import { useWorkout } from '@/context/WorkoutContext'
 import {
   OPENAI_MODELS,
@@ -79,9 +77,10 @@ export function SettingsPage() {
   return (
     <div className="page stack">
       <header>
-        <p className="brand-mark">{APP_MARK}</p>
-        <h1 style={{ marginTop: 6 }}>設定</h1>
-        <p className="page-kicker">個人資料用嚟排課；LLM 用嚟叫 AI 砌訓練</p>
+        <p className="page-kicker">個人資料 · LLM</p>
+        <h1 className="display" style={{ marginTop: 4 }}>
+          設定
+        </h1>
       </header>
 
       <div className="settings-tabs" role="tablist" aria-label="設定分類">
@@ -317,10 +316,6 @@ export function SettingsPage() {
           </button>
         </div>
       )}
-
-      <Link to="/" className="btn btn-ghost btn-block">
-        返回訓練
-      </Link>
     </div>
   )
 }

@@ -24,13 +24,15 @@ function effectiveGear(def: MotionDef, equipment?: string): Gear | undefined {
     return undefined
   }
   if (!def.gear) return undefined
+  // One implement held at the hands' midpoint (Russian twist, etc.)
+  if (def.gear === 'ball') return 'ball'
   switch (equipment) {
     case 'dumbbell':
       return 'dumbbell'
     case 'kettlebell':
       return 'kettlebell'
     case 'barbell':
-      return def.gear === 'ball' ? 'ball' : 'barbell'
+      return 'barbell'
     case 'cable':
       return def.gear === 'latbar' ? 'latbar' : 'handle'
     default:
@@ -69,7 +71,8 @@ function transformsFor(def: MotionDef, gear: Gear | undefined): Record<NodeId, s
       push(`ank-${side}`, `rotate(${round(ankle)}deg)`)
     }
 
-    if (gear === 'dumbbell' || gear === 'handle') {
+    const dualHands = gear === 'dumbbell' || (gear === 'handle' && def.view === 'front')
+    if (dualHands) {
       for (const side of ['far', 'near'] as Side[]) {
         const [hx, hy] = handAt(def, pose, side)
         push(`gear-${side}`, `translate(${round(hx)}px, ${round(hy)}px)`)
@@ -77,6 +80,14 @@ function transformsFor(def: MotionDef, gear: Gear | undefined): Record<NodeId, s
     } else if (gear) {
       const [gx, gy] = gearPoint(def, pose)
       push('gear', `translate(${round(gx)}px, ${round(gy)}px)`)
+    }
+    if (gear === 'handle' && def.view !== 'front' && def.props?.includes('cable-high')) {
+      const [hx, hy] = handAt(def, pose, 'near')
+      const dx = hx - 91
+      const dy = hy - 14
+      const len = Math.hypot(dx, dy)
+      const ang = (-Math.atan2(dx, dy) * 180) / Math.PI
+      push('cable-rope', `translate(91px, 14px) rotate(${round(ang)}deg) scaleY(${round(len)})`)
     }
   }
 
@@ -277,7 +288,7 @@ function Gear({
   if (!gear) return null
   const front = def.view === 'front'
 
-  if (gear === 'dumbbell' || gear === 'handle') {
+  if (gear === 'dumbbell' || (gear === 'handle' && front)) {
     return (
       <>
         {(['far', 'near'] as Side[]).map((side) => (
@@ -325,6 +336,7 @@ function Gear({
           <circle cy={5} r={4.4} className="plate" />
         </>
       )}
+      {gear === 'handle' && <rect x={-2.2} y={-2.8} width={4.4} height={5.6} rx={1.4} />}
       {gear === 'ball' && <circle r={4.6} className="plate" />}
     </g>
   )
@@ -478,7 +490,7 @@ export function ExerciseAnim({
   kind?: string
   muscle?: string
   equipment?: string
-  size?: 'thumb' | 'wide'
+  size?: 'thumb' | 'wide' | 'hero'
 }) {
   const motion: MotionId = motionFor(exerciseId, kind, muscle)
   const def = MOTIONS[motion]
@@ -495,6 +507,11 @@ export function ExerciseAnim({
     <div className={`ex-anim size-${size}`} aria-hidden>
       <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
         <Props def={def} />
+        {gear === 'handle' && def.view !== 'front' && def.props?.includes('cable-high') && (
+          <g className="prop" style={styleFor('cable-rope')}>
+            <line x1={0} y1={0} x2={0} y2={1} />
+          </g>
+        )}
         <Dummy def={def} styleFor={styleFor} />
         <Gear def={def} gear={gear} styleFor={styleFor} />
       </svg>

@@ -21,16 +21,15 @@ export function SuggestForm({
 }) {
   return (
     <div className="stack">
-      <section className="panel hero-today">
-        <p className="eyebrow">建立訓練</p>
-        <h1>今日想練咩？</h1>
-        <p className="muted" style={{ margin: 0 }}>
+      <section className="up-next-head">
+        <h1 className="display">今日練咩</h1>
+        <p className="muted" style={{ margin: '6px 0 0' }}>
           揀部位同時間，跟住就有一套可以跟示範做嘅課表。
         </p>
       </section>
 
       <section className="panel">
-        <h3 style={{ marginBottom: 12 }}>目標肌群</h3>
+        <h3 className="section-title">目標肌群</h3>
         <div className="pick-grid">
           {PICKABLE_MUSCLES.map((muscle) => (
             <button
@@ -46,7 +45,7 @@ export function SuggestForm({
       </section>
 
       <section className="panel">
-        <h3 style={{ marginBottom: 12 }}>時長</h3>
+        <h3 className="section-title">時長</h3>
         <div className="pick-grid duration-grid">
           {DURATION_OPTIONS.map((opt) => (
             <button
@@ -64,7 +63,7 @@ export function SuggestForm({
       <div className="sticky-cta">
         <button
           type="button"
-          className="btn btn-primary btn-block"
+          className="btn btn-primary btn-block display-btn"
           disabled={loading || focus.length === 0}
           onClick={onSuggest}
         >
