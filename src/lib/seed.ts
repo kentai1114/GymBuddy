@@ -1,12 +1,12 @@
 import type { AppState, UserProfile } from './types'
 
 export const DEFAULT_PROFILE: UserProfile = {
-  name: 'KEN',
+  name: '',
   goal: 'hypertrophy',
   experience: 'intermediate',
   daysPerWeek: 4,
   preferredSplit: 'push_pull_legs',
-  bodyWeightKg: 75,
+  bodyWeightKg: 0,
 }
 
 const GOALS = new Set<UserProfile['goal']>(['strength', 'hypertrophy', 'fat_loss', 'endurance'])
@@ -19,7 +19,8 @@ const SPLITS = new Set<UserProfile['preferredSplit']>([
 ])
 
 export function normalizeProfile(raw?: Partial<UserProfile> | null): UserProfile {
-  const name = raw?.name?.trim() || DEFAULT_PROFILE.name
+  const rawName = typeof raw?.name === 'string' ? raw.name.trim() : ''
+  const name = rawName === 'KEN' ? '' : rawName
   const body = Number(raw?.bodyWeightKg)
   return {
     name,
@@ -35,7 +36,7 @@ export function normalizeProfile(raw?: Partial<UserProfile> | null): UserProfile
       raw?.preferredSplit && SPLITS.has(raw.preferredSplit)
         ? raw.preferredSplit
         : DEFAULT_PROFILE.preferredSplit,
-    bodyWeightKg: Number.isFinite(body) && body >= 30 ? body : DEFAULT_PROFILE.bodyWeightKg,
+    bodyWeightKg: Number.isFinite(body) && body >= 30 ? body : 0,
   }
 }
 

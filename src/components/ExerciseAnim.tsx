@@ -102,15 +102,15 @@ function buildMotion(motion: MotionId, gear: Gear | undefined): Built {
       .join('')
     css += `@keyframes ${name}{${steps}}`
     statics[node] = first
-    animated[node] = `${name} ${def.dur}s ease-in-out infinite alternate`
+    animated[node] = `${name} ${def.dur}s ease-in-out infinite alternate both`
   }
 
   return {
     css,
     styleFor: (node) => {
-      const transform = statics[node]
-      if (!transform) return undefined
-      return animated[node] ? { transform, animation: animated[node] } : { transform }
+      if (animated[node]) return { animation: animated[node] }
+      if (statics[node]) return { transform: statics[node] }
+      return undefined
     },
   }
 }
@@ -126,7 +126,7 @@ function inject(key: string, css: string) {
     sheet.setAttribute('data-ex-anim', '')
     document.head.appendChild(sheet)
   }
-  sheet.appendChild(document.createTextNode(css))
+  sheet.textContent = `${sheet.textContent ?? ''}${css}`
 }
 
 /** Filled muscle capsule: thick in the belly, tapering into the joints. */

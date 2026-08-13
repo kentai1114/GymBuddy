@@ -123,6 +123,7 @@ export function SettingsPage() {
           <input
             className="input"
             value={profile.name}
+            placeholder="可留空"
             onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
             onBlur={(e) => persistProfile({ ...profile, name: e.target.value })}
           />
@@ -134,7 +135,8 @@ export function SettingsPage() {
             inputMode="decimal"
             min={30}
             step={0.1}
-            value={profile.bodyWeightKg}
+            placeholder="可留空"
+            value={profile.bodyWeightKg > 0 ? profile.bodyWeightKg : ''}
             onChange={(e) =>
               setProfile((p) => ({ ...p, bodyWeightKg: Number(e.target.value) || 0 }))
             }

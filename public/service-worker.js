@@ -1,4 +1,4 @@
-const CACHE = 'gymbuddy-v1'
+const CACHE = 'gymbuddy-v2'
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

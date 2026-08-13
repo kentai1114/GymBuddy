@@ -609,6 +609,7 @@ h3 {
 }
 
 .ex-anim g {
+  transform-box: fill-box;
   transform-origin: 0 0;
 }
 
@@ -712,8 +713,8 @@ h3 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ex-anim * {
-    animation: none !important;
+  .page {
+    animation: none;
   }
 }
 
