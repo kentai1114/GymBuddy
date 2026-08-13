@@ -4,6 +4,7 @@ import { getExercise } from '@/data/exercises'
 import { MuscleMap } from '@/components/MuscleMap'
 import { sessionKcal, sessionMinutes, sessionVolumeKg } from '@/lib/stats'
 import { formatMinutes, muscleLabel } from '@/lib/utils'
+import { formatVolumeLb } from '@/lib/units'
 import type { WorkoutSession } from '@/lib/types'
 
 export function SessionReview({
@@ -63,11 +64,11 @@ export function SessionReview({
         </div>
         <div>
           <span>訓練量</span>
-          <strong>{volume.toLocaleString()} kg</strong>
+          <strong>{formatVolumeLb(volume)}</strong>
         </div>
         <div>
           <span>消耗</span>
-          <strong>{kcal}</strong>
+          <strong>{kcal} kcal</strong>
         </div>
       </div>
       {names && <p className="log-preview">{names}</p>}

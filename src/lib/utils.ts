@@ -2,6 +2,7 @@ import { formatDistanceToNow, format, parseISO, startOfWeek, addDays, isSameDay 
 import { zhTW } from 'date-fns/locale'
 import type { MuscleGroup, PlannedExercise, WorkoutSession } from './types'
 import { MUSCLE_LABELS } from '@/data/exercises'
+import { formatLb } from './units'
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`
@@ -43,14 +44,12 @@ export function prescriptionText(pe: PlannedExercise): string {
   }
   if (pe.kind === 'timed') {
     const load = pe.sets[0]?.targetWeight
-    return `${pe.sets.length} 組 × ${pe.sets[0]?.targetDurationSec ?? 45} 秒${
-      load != null ? ` · ${load} kg` : ''
+    return `${pe.sets.length} 組 · ${pe.sets[0]?.targetDurationSec ?? 45} 秒${
+      load != null ? ` · ${formatLb(load)}` : ''
     }`
   }
   const weight = pe.sets[0]?.targetWeight
-  return `${pe.sets.length} 組 × ${pe.sets[0]?.targetReps ?? '-'} 次${
-    weight != null ? ` · ${weight} kg` : ''
-  }`
+  return `${pe.sets.length} 組 · ${pe.sets[0]?.targetReps ?? '-'} 次 · ${formatLb(weight)}`
 }
 
 export function muscleLabel(groups: MuscleGroup[]): string {

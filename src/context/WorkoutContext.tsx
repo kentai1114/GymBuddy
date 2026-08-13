@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { AppState, PlannedSet, SuggestInput, UserProfile, WorkoutSession } from '@/lib/types'
+import type { AppState, PlannedExercise, PlannedSet, SuggestInput, UserProfile, WorkoutSession } from '@/lib/types'
 import type { SuggestionResult } from '@/lib/ai-suggest'
 import { loadState, saveState } from '@/lib/storage'
 import { buildPlannedExercises, suggestWorkoutWithLlm } from '@/lib/ai-suggest'
@@ -32,6 +32,11 @@ interface WorkoutContextValue {
   ) => void
   replaceExercise: (sessionId: string, plannedId: string, newExerciseId: string) => void
   addSet: (sessionId: string, plannedId: string) => void
+  updatePlanned: (
+    sessionId: string,
+    plannedId: string,
+    patch: Partial<Pick<PlannedExercise, 'restSec' | 'notes'>>,
+  ) => void
   completeSet: (
     sessionId: string,
     exerciseId: string,
@@ -180,6 +185,26 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     }))
   }, [])
 
+  const updatePlanned = useCallback(
+    (
+      sessionId: string,
+      plannedId: string,
+      patch: Partial<Pick<PlannedExercise, 'restSec' | 'notes'>>,
+    ) => {
+      setState((prev) => ({
+        ...prev,
+        sessions: prev.sessions.map((s) => {
+          if (s.id !== sessionId) return s
+          return {
+            ...s,
+            exercises: s.exercises.map((e) => (e.id === plannedId ? { ...e, ...patch } : e)),
+          }
+        }),
+      }))
+    },
+    [],
+  )
+
   const completeSet = useCallback(
     (
       sessionId: string,
@@ -252,6 +277,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
     updateSet,
     replaceExercise,
     addSet,
+    updatePlanned,
     completeSet,
     finishSession,
     deleteSession,

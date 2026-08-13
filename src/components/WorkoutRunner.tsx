@@ -10,13 +10,12 @@ import { SwapSheet } from '@/components/SwapSheet'
 import { formatSeconds, sessionProgress } from '@/lib/utils'
 import type { PlannedSet, WorkoutSession } from '@/lib/types'
 
-type Phase = 'work' | 'rest'
-
 export function WorkoutRunner({ session }: { session: WorkoutSession }) {
-  const { completeSet, finishSession, updateSet, replaceExercise, addSet } = useWorkout()
+  const { completeSet, finishSession, updateSet, replaceExercise, addSet, updatePlanned } = useWorkout()
   const [swapOpen, setSwapOpen] = useState(false)
   const [howTo, setHowTo] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [restEndAt, setRestEndAt] = useState<number | null>(null)
 
   const flat = useMemo(
     () =>
@@ -37,24 +36,23 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
   const currentExercise = current ? getExercise(current.ex.exerciseId) : undefined
   const usesTimer = current?.ex.kind === 'cardio' || current?.ex.kind === 'timed'
 
-  const [phase, setPhase] = useState<Phase>('work')
-  const [restLeft, setRestLeft] = useState(0)
   const [holdLeft, setHoldLeft] = useState(0)
   const [holdRunning, setHoldRunning] = useState(false)
   const [now, setNow] = useState(() => Date.now())
 
+  const restLeft = restEndAt ? Math.max(0, Math.ceil((restEndAt - now) / 1000)) : 0
+  const resting = restLeft > 0
+
   useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 1000)
+    const t = window.setInterval(() => setNow(Date.now()), resting ? 200 : 1000)
     return () => window.clearInterval(t)
-  }, [])
+  }, [resting])
 
   const elapsed = session.startedAt
     ? Math.max(0, differenceInSeconds(new Date(now), parseISO(session.startedAt)))
     : 0
 
   useEffect(() => {
-    setPhase('work')
-    setRestLeft(0)
     setHoldRunning(false)
     setHowTo(false)
     setSwapOpen(false)
@@ -64,18 +62,8 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
   }, [current?.key])
 
   useEffect(() => {
-    if (phase !== 'rest' || restLeft <= 0) return
-    const t = window.setInterval(() => {
-      setRestLeft((v) => {
-        if (v <= 1) {
-          setPhase('work')
-          return 0
-        }
-        return v - 1
-      })
-    }, 1000)
-    return () => window.clearInterval(t)
-  }, [phase, restLeft])
+    if (restEndAt && restLeft <= 0) setRestEndAt(null)
+  }, [restEndAt, restLeft])
 
   useEffect(() => {
     if (!holdRunning || holdLeft <= 0) return
@@ -96,8 +84,10 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
     updateSet(session.id, current.ex.id, setId, patch)
   }
 
+  const skipRest = () => setRestEndAt(null)
+
   const onCompleteSet = () => {
-    if (!current) return
+    if (!current || resting) return
 
     if (usesTimer) {
       const target = current.set.targetDurationSec ?? 45
@@ -120,8 +110,10 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
       return
     }
 
-    setPhase('rest')
-    setRestLeft(current.ex.restSec || 60)
+    const rest = current.ex.restSec || 60
+    const t = Date.now()
+    setNow(t)
+    setRestEndAt(t + rest * 1000)
   }
 
   const progress = sessionProgress(session)
@@ -131,7 +123,7 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
     return (
       <section className="panel empty">
         <h3>搞掂</h3>
-        <p>今日訓練已記錄。</p>
+        <p>今日訓練已紀錄。</p>
       </section>
     )
   }
@@ -168,6 +160,7 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
       )}
       <ExerciseActions
         restSec={current.ex.kind === 'cardio' ? undefined : current.ex.restSec}
+        onRest={(sec) => updatePlanned(session.id, current.ex.id, { restSec: sec })}
         onReplace={() => setSwapOpen((v) => !v)}
       />
       {swapOpen && (
@@ -177,6 +170,7 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
           onPick={(id) => {
             replaceExercise(session.id, current.ex.id, id)
             setSwapOpen(false)
+            skipRest()
           }}
         />
       )}
@@ -201,19 +195,14 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
         )}
       </div>
 
-      {phase === 'rest' && (
+      {resting && (
         <section className="rest-overlay">
           <p className="eyebrow">休息</p>
           <strong>{formatSeconds(restLeft)}</strong>
-          <p className="muted">下一組</p>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => {
-              setPhase('work')
-              setRestLeft(0)
-            }}
-          >
+          <p className="muted">
+            下一組 · {currentExercise.nameZh} · 第 {current.setIndex + 1} 組
+          </p>
+          <button type="button" className="btn btn-ghost" onClick={skipRest}>
             <SkipForward size={16} /> 跳過休息
           </button>
         </section>
@@ -224,7 +213,7 @@ export function WorkoutRunner({ session }: { session: WorkoutSession }) {
           type="button"
           className="btn btn-primary btn-block display-btn"
           onClick={onCompleteSet}
-          disabled={phase === 'rest'}
+          disabled={resting}
         >
           <Check size={18} />
           {usesTimer ? '完成呢段' : '完成呢組'}

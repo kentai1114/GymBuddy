@@ -1,5 +1,7 @@
 export type MotionId =
   | 'press'
+  | 'inclinepress'
+  | 'chestpress'
   | 'fly'
   | 'pushup'
   | 'dip'
@@ -39,9 +41,9 @@ export type MotionId =
 
 const MOTION_BY_ID: Record<string, MotionId> = {
   'bench-press': 'press',
-  'incline-db-press': 'press',
+  'incline-db-press': 'inclinepress',
   'db-bench': 'press',
-  'machine-chest-press': 'press',
+  'machine-chest-press': 'chestpress',
   'decline-db-press': 'press',
   'close-grip-bench': 'press',
   'cable-fly': 'fly',

@@ -355,9 +355,26 @@ function Props({ def }: { def: MotionDef }) {
       case 'bench':
         nodes.push(
           <g key={prop} className="prop">
-            <rect x={12} y={58} width={50} height={4.4} rx={2.2} className="pad" />
-            <line x1={18} y1={62} x2={18} y2={90} />
-            <line x1={57} y1={62} x2={57} y2={90} />
+            <rect x={8} y={58} width={72} height={4.4} rx={2.2} className="pad" />
+            <line x1={16} y1={62} x2={16} y2={90} />
+            <line x1={72} y1={62} x2={72} y2={90} />
+          </g>,
+        )
+        break
+      case 'incline-bench':
+        nodes.push(
+          <g key={prop} className="prop">
+            <rect
+              className="pad"
+              x={0}
+              y={0}
+              width={52}
+              height={4.4}
+              rx={2.2}
+              transform="translate(22 72) rotate(-38)"
+            />
+            <line x1={26} y1={74} x2={26} y2={90} />
+            <line x1={62} y1={50} x2={62} y2={90} />
           </g>,
         )
         break
@@ -495,11 +512,12 @@ export function ExerciseAnim({
   const motion: MotionId = motionFor(exerciseId, kind, muscle)
   const def = MOTIONS[motion]
   const gear = effectiveGear(def, equipment)
-  const built = useMemo(() => buildMotion(motion, gear), [motion, gear])
+  const poseKey = `${def.rot ?? 0}-${def.root.join('x')}-${def.poses.map((p) => (p.arm ?? []).join(',')).join('|')}`
+  const built = useMemo(() => buildMotion(motion, gear), [motion, gear, poseKey])
 
   useInsertionEffect(() => {
-    inject(`${motion}-${gear ?? 'bare'}`, built.css)
-  }, [motion, gear, built])
+    inject(`${motion}-${gear ?? 'bare'}-${poseKey}`, built.css)
+  }, [motion, gear, poseKey, built])
 
   const { styleFor } = built
 

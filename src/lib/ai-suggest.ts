@@ -13,6 +13,7 @@ import { chatCompletion, extractJsonObject } from './openai'
 import { progressWeight, suggestStartWeight, usesWeight } from './loading'
 import { hasLlmConfigured, resolveLlm } from './settings'
 import { TARGET_MINUTES } from './stats'
+import { kgToLb } from './units'
 
 const RECOVERY_HOURS: Partial<Record<MuscleGroup, number>> = {
   chest: 48,
@@ -250,7 +251,11 @@ function weightNote(
     (pe) => pe.sets[0]?.targetWeight != null && lastWeight(sessions, pe.exerciseId) == null,
   )
   if (!estimated) return ''
-  return `未做過嘅動作，重量係按你 ${profile.bodyWeightKg}kg 體重同「${profile.experience === 'beginner' ? '新手' : profile.experience === 'advanced' ? '進階' : '中階'}」估嘅起步值，第一組當試重，唔順就即場改。`
+  const level =
+    profile.experience === 'beginner' ? '新手' : profile.experience === 'advanced' ? '進階' : '中階'
+  const body =
+    profile.bodyWeightKg > 0 ? `你 ${kgToLb(profile.bodyWeightKg, 1)} lb 體重` : '你嘅體型'
+  return `未做過嘅動作，重量係按${body}同「${level}」估嘅起步值，第一組當試重，唔順就即場改。`
 }
 
 function recoveryNotes(sessions: WorkoutSession[]): string[] {
@@ -482,7 +487,7 @@ export function suggestWorkoutHeuristic(
     best.reason,
     last
       ? `上次係「${last.title}」，今日轉做「${session.title}」避免重複刺激。`
-      : '未有足夠記錄，先由平衡模板開始。',
+      : '未有足夠紀錄，先由平衡模板開始。',
     minutes >= 120 ? `呢堂拉長到 ${formatMinutes(minutes)}，會加配件同收尾。` : '',
     profile.goal === 'hypertrophy'
       ? '依你嘅增肌目標，組數偏中高、休息 60–90 秒。'

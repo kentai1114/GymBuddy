@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { CalendarDays, Dumbbell, User } from 'lucide-react'
+import { CalendarDays, Dumbbell, Settings } from 'lucide-react'
 
 const links = [
   { to: '/', label: '訓練', icon: Dumbbell, end: true },
   { to: '/history', label: '紀錄', icon: CalendarDays },
-  { to: '/settings', label: '我', icon: User },
+  { to: '/settings', label: '設定', icon: Settings },
 ]
 
 export function BottomNav() {

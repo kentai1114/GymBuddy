@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Cpu, ExternalLink, KeyRound, Save, User } from 'lucide-react'
+import { AppHeader } from '@/components/Layout'
 import { useWorkout } from '@/context/WorkoutContext'
 import {
   OPENAI_MODELS,
@@ -11,6 +12,7 @@ import {
 } from '@/lib/settings'
 import type { UserProfile } from '@/lib/types'
 import { normalizeProfile } from '@/lib/seed'
+import { kgToLb, lbToKg } from '@/lib/units'
 
 const GOALS: Array<{ id: UserProfile['goal']; label: string }> = [
   { id: 'hypertrophy', label: '增肌' },
@@ -76,12 +78,8 @@ export function SettingsPage() {
 
   return (
     <div className="page stack">
-      <header>
-        <p className="page-kicker">個人資料 · LLM</p>
-        <h1 className="display" style={{ marginTop: 4 }}>
-          設定
-        </h1>
-      </header>
+      <AppHeader />
+      <h1 className="display">設定</h1>
 
       <div className="settings-tabs" role="tablist" aria-label="設定分類">
         <button
@@ -127,20 +125,26 @@ export function SettingsPage() {
             onBlur={(e) => persistProfile({ ...profile, name: e.target.value })}
           />
 
-          <label className="field-label">體重 (kg)</label>
+          <label className="field-label">體重 (lb)</label>
           <input
             className="input"
             type="number"
             inputMode="decimal"
-            min={30}
-            step={0.1}
+            min={66}
+            step={1}
             placeholder="可留空"
-            value={profile.bodyWeightKg > 0 ? profile.bodyWeightKg : ''}
+            value={profile.bodyWeightKg > 0 ? kgToLb(profile.bodyWeightKg, 1) : ''}
             onChange={(e) =>
-              setProfile((p) => ({ ...p, bodyWeightKg: Number(e.target.value) || 0 }))
+              setProfile((p) => ({
+                ...p,
+                bodyWeightKg: e.target.value === '' ? 0 : lbToKg(Number(e.target.value) || 0),
+              }))
             }
             onBlur={(e) =>
-              persistProfile({ ...profile, bodyWeightKg: Number(e.target.value) || 0 })
+              persistProfile({
+                ...profile,
+                bodyWeightKg: e.target.value === '' ? 0 : lbToKg(Number(e.target.value) || 0),
+              })
             }
           />
 
@@ -258,7 +262,7 @@ export function SettingsPage() {
               <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">
                 platform.openai.com/api-keys <ExternalLink size={12} />
               </a>{' '}
-              開 <code>sk-</code> key，貼低。首次用 API 要加 Billing。
+              開 <code>sk-</code> key，貼低。第一次用 API 要開帳單。
             </p>
             <input
               className="input"
@@ -268,7 +272,7 @@ export function SettingsPage() {
               value={settings.openaiApiKey}
               onChange={(e) => setSettings((s) => ({ ...s, openaiApiKey: e.target.value }))}
             />
-            <label className="field-label">Model</label>
+            <label className="field-label">模型</label>
             <div className="pick-grid model-grid">
               {OPENAI_MODELS.map((m) => (
                 <button
@@ -298,7 +302,7 @@ export function SettingsPage() {
               <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">
                 openrouter.ai/keys <ExternalLink size={12} />
               </a>{' '}
-              開 <code>sk-or-</code> key。Model 由 OpenRouter 自動揀，唔使自己選。
+              開 <code>sk-or-</code> key。模型由 OpenRouter 自動揀，唔使自己選。
             </p>
             <input
               className="input"

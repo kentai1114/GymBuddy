@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
 import type { PlannedExercise, PlannedSet } from '@/lib/types'
+import { kgToLb, lbToKg } from '@/lib/units'
 
 export function SetsTable({
   pe,
@@ -48,13 +49,13 @@ export function SetsTable({
           {timed ? (
             <>
               <OutlinedField
-                label="kg"
-                value={set.targetWeight}
+                label="重量 (lb)"
+                value={set.targetWeight != null ? kgToLb(set.targetWeight) : undefined}
                 disabled={set.completed}
                 min={0}
-                step={0.5}
+                step={5}
                 decimal
-                onChange={(n) => onPatch(set.id, { targetWeight: n })}
+                onChange={(n) => onPatch(set.id, { targetWeight: n != null ? lbToKg(n) : undefined })}
               />
               <OutlinedField
                 label="秒"
@@ -77,13 +78,13 @@ export function SetsTable({
                 onChange={(n) => onPatch(set.id, { targetReps: n })}
               />
               <OutlinedField
-                label="重量 (kg)"
-                value={set.targetWeight}
+                label="重量 (lb)"
+                value={set.targetWeight != null ? kgToLb(set.targetWeight) : undefined}
                 disabled={set.completed}
                 min={0}
-                step={0.5}
+                step={5}
                 decimal
-                onChange={(n) => onPatch(set.id, { targetWeight: n })}
+                onChange={(n) => onPatch(set.id, { targetWeight: n != null ? lbToKg(n) : undefined })}
               />
             </>
           )}

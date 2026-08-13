@@ -14,6 +14,7 @@ import {
 import { zhTW } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
+import { AppHeader } from '@/components/Layout'
 import { SessionReview } from '@/components/SessionReview'
 import { RecoveryStrip } from '@/components/RecoveryStrip'
 import { summarizeSessions } from '@/lib/stats'
@@ -66,9 +67,8 @@ export function HistoryPage() {
 
   return (
     <div className="page stack">
-      <header className="log-top">
-        <h1 className="display">{state.profile.name.trim() || '紀錄'}</h1>
-      </header>
+      <AppHeader />
+      <h1 className="display">紀錄</h1>
 
       <section className="stat-grid">
         <div className="stat">
@@ -173,7 +173,9 @@ export function HistoryPage() {
         </div>
       </section>
 
-      <h2 className="display section-display">過往訓練</h2>
+      <h2 className="section-title" style={{ marginTop: 4 }}>
+        過往訓練
+      </h2>
       {daySessions.length > 0 ? (
         daySessions.map((session) => (
           <SessionReview

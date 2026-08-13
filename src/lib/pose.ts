@@ -44,6 +44,7 @@ export type Prop =
   | 'floor'
   | 'bench'
   | 'bench-back'
+  | 'incline-bench'
   | 'seat'
   | 'seat-back'
   | 'bar-overhead'
@@ -74,14 +75,35 @@ export type MotionDef = {
 
 export const MOTIONS: Record<MotionId, MotionDef> = {
   press: {
-    dur: 1.5,
-    root: [48, 56],
+    dur: 1.55,
+    root: [44, 60],
     rot: -90,
     gear: 'barbell',
     props: ['floor', 'bench'],
     poses: [
-      { arm: [-90, 0], leg: [50, 50], leg2: [46, 56] },
-      { arm: [-10, -125], leg: [50, 50], leg2: [46, 56] },
+      { arm: [-88, -6], leg: [42, 78], leg2: [38, 82], ank: -18 },
+      { arm: [22, -136], leg: [42, 78], leg2: [38, 82], ank: -18 },
+    ],
+  },
+  inclinepress: {
+    dur: 1.55,
+    root: [50, 66],
+    rot: -52,
+    gear: 'dumbbell',
+    props: ['floor', 'incline-bench'],
+    poses: [
+      { arm: [-86, -10], leg: [28, 72], leg2: [24, 76], ank: -14 },
+      { arm: [16, -128], leg: [28, 72], leg2: [24, 76], ank: -14 },
+    ],
+  },
+  chestpress: {
+    dur: 1.5,
+    root: [50, 64],
+    gear: 'handle',
+    props: ['floor', 'seat-back'],
+    poses: [
+      { torso: -12, arm: [-32, -108], leg: [-82, 88], leg2: [-78, 84] },
+      { torso: -8, arm: [-88, -8], leg: [-82, 88], leg2: [-78, 84] },
     ],
   },
   fly: {

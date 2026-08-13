@@ -1,10 +1,14 @@
 import { useState, type ReactNode } from 'react'
-import { Play, Repeat, Timer, X } from 'lucide-react'
+import { Minus, Play, Plus, Repeat, X } from 'lucide-react'
 import type { Exercise, PlannedExercise, PlannedSet } from '@/lib/types'
 import { ExerciseAnim } from '@/components/ExerciseAnim'
 import { SetsTable } from '@/components/SetsTable'
 import { SwapSheet } from '@/components/SwapSheet'
 import { formatSeconds } from '@/lib/utils'
+
+const REST_STEP = 15
+const REST_MIN = 15
+const REST_MAX = 300
 
 export function ExerciseHero({
   exercise,
@@ -56,21 +60,43 @@ export function ExerciseHero({
 
 export function ExerciseActions({
   restSec,
+  onRest,
   onReplace,
   extra,
 }: {
   restSec?: number
+  onRest?: (sec: number) => void
   onReplace?: () => void
   extra?: ReactNode
 }) {
   return (
     <div className="ex-actions">
-      {restSec != null && (
-        <span className="ex-action">
-          <Timer size={14} />
-          {formatSeconds(restSec)} 休息
-        </span>
-      )}
+      {restSec != null &&
+        (onRest ? (
+          <div className="ex-action rest-adjust">
+            <button
+              type="button"
+              className="rest-step"
+              aria-label="減少休息"
+              disabled={restSec <= REST_MIN}
+              onClick={() => onRest(Math.max(REST_MIN, restSec - REST_STEP))}
+            >
+              <Minus size={14} />
+            </button>
+            <span>{formatSeconds(restSec)} 休息</span>
+            <button
+              type="button"
+              className="rest-step"
+              aria-label="增加休息"
+              disabled={restSec >= REST_MAX}
+              onClick={() => onRest(Math.min(REST_MAX, restSec + REST_STEP))}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        ) : (
+          <span className="ex-action">{formatSeconds(restSec)} 休息</span>
+        ))}
       {extra}
       {onReplace && (
         <button type="button" className="ex-action" onClick={onReplace}>
@@ -91,6 +117,7 @@ export function ExerciseSheet({
   onPatch,
   onAddSet,
   onReplace,
+  onRest,
 }: {
   exercise: Exercise
   planned: PlannedExercise
@@ -100,6 +127,7 @@ export function ExerciseSheet({
   onPatch: (setId: string, patch: Partial<PlannedSet>) => void
   onAddSet?: () => void
   onReplace?: (exerciseId: string) => void
+  onRest?: (sec: number) => void
 }) {
   const [howTo, setHowTo] = useState(false)
   const [swapping, setSwapping] = useState(false)
@@ -124,6 +152,7 @@ export function ExerciseSheet({
         )}
         <ExerciseActions
           restSec={planned.kind === 'strength' || planned.kind === 'timed' ? planned.restSec : undefined}
+          onRest={onRest}
           onReplace={onReplace ? () => setSwapping((v) => !v) : undefined}
         />
         {swapping && onReplace && (

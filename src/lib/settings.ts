@@ -176,5 +176,5 @@ export function llmStatusText(settings = loadLlmSettings()): string {
   const active = resolveLlm(settings)
   if (active.kind === 'local') return '未貼 API key，排課會用本地規則。'
   if (active.kind === 'openai') return `而家用 ChatGPT · ${active.model}`
-  return '而家用 OpenRouter（自動揀 model）'
+  return '而家用 OpenRouter（自動揀模型）'
 }

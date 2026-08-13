@@ -1,8 +1,6 @@
-import { format } from 'date-fns'
-import { zhTW } from 'date-fns/locale'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, ChevronDown, Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeftRight, Check, ChevronDown, Loader2, Sparkles } from 'lucide-react'
 import { useWorkout } from '@/context/WorkoutContext'
 import { WorkoutRunner } from '@/components/WorkoutRunner'
 import { ExerciseRow } from '@/components/ExerciseRow'
@@ -10,9 +8,11 @@ import { ExerciseSheet } from '@/components/ExerciseSheet'
 import { SessionReview } from '@/components/SessionReview'
 import { SuggestForm } from '@/components/SuggestForm'
 import { SwapSheet } from '@/components/SwapSheet'
-import { getExercise } from '@/data/exercises'
+import { AppHeader } from '@/components/Layout'
+import { DURATION_OPTIONS, getExercise } from '@/data/exercises'
 import { sessionKcal, sessionMinutes, sessionVolumeKg } from '@/lib/stats'
 import { formatMinutes } from '@/lib/utils'
+import { formatVolumeLb } from '@/lib/units'
 import type { MuscleGroup, SuggestInput } from '@/lib/types'
 
 export function HomePage() {
@@ -26,6 +26,7 @@ export function HomePage() {
     replaceExercise,
     updateSet,
     addSet,
+    updatePlanned,
     deleteSession,
   } = useWorkout()
   const [loading, setLoading] = useState(false)
@@ -67,7 +68,7 @@ export function HomePage() {
 
   return (
     <div className="page stack">
-      <HomeHeader name={state.profile.name} />
+      <AppHeader />
 
       {loading && (
         <section className="panel empty">
@@ -101,7 +102,6 @@ export function HomePage() {
       {!loading && showPlan && todaySession && (
         <UpNext
           session={todaySession}
-          profileName={state.profile.name}
           reason={reason}
           onStart={() => startSession(todaySession.id)}
           onSwitch={() =>
@@ -110,13 +110,19 @@ export function HomePage() {
               minutes: todaySession.estimatedMinutes,
             })
           }
-          onCustomize={() => {
+          onDuration={(mins) =>
+            void runSuggest({
+              focus: todaySession.focus.length ? todaySession.focus : undefined,
+              minutes: mins,
+            })
+          }
+          onOpen={setOpenPeId}
+          onMore={setSwapPeId}
+          onReselect={() => {
             setFocus(todaySession.focus)
             setMinutes(todaySession.estimatedMinutes)
             setCustomizing(true)
           }}
-          onOpen={setOpenPeId}
-          onMore={setSwapPeId}
         />
       )}
 
@@ -127,6 +133,7 @@ export function HomePage() {
           onClose={() => setOpenPeId(null)}
           onPatch={(setId, patch) => updateSet(todaySession.id, openPe.id, setId, patch)}
           onAddSet={() => addSet(todaySession.id, openPe.id)}
+          onRest={(sec) => updatePlanned(todaySession.id, openPe.id, { restSec: sec })}
           onReplace={(id) => replaceExercise(todaySession.id, openPe.id, id)}
         />
       )}
@@ -154,50 +161,73 @@ export function HomePage() {
 
 function UpNext({
   session,
-  profileName,
   reason,
   onStart,
   onSwitch,
-  onCustomize,
+  onDuration,
   onOpen,
   onMore,
+  onReselect,
 }: {
   session: NonNullable<ReturnType<typeof useWorkout>['todaySession']>
-  profileName: string
   reason: string
   onStart: () => void
   onSwitch: () => void
-  onCustomize: () => void
+  onDuration: (minutes: number) => void
   onOpen: (id: string) => void
   onMore: (id: string) => void
+  onReselect: () => void
 }) {
   const muscles = useMemo(() => new Set(session.focus), [session.focus])
+  const [durOpen, setDurOpen] = useState(false)
 
   return (
     <>
       <section className="up-next-head">
         <div className="row space-between" style={{ alignItems: 'flex-start' }}>
-          <div>
-            <h1 className="display">下一步</h1>
-            <p className="muted" style={{ margin: '6px 0 0' }}>
-              {session.exercises.length} 個動作 · {muscles.size || session.focus.length} 個肌群
-            </p>
-          </div>
+          <h1 className="display">下一步</h1>
           <button type="button" className="btn-switch" onClick={onSwitch}>
             <ArrowLeftRight size={14} />
             換一套
           </button>
         </div>
-        <div className="plan-pills">
-          <button type="button" className="plan-pill" onClick={onCustomize}>
-            {minutesShort(session.estimatedMinutes)}
-            <ChevronDown size={14} />
-          </button>
-          <Link to="/settings" className="plan-pill">
-            {profileName.trim() || '個人'}
-            <ChevronDown size={14} />
-          </Link>
-        </div>
+        <p className="muted plan-meta">
+          {session.exercises.length} 個動作 · {muscles.size || session.focus.length} 個肌群 ·{' '}
+          <span className="plan-pill-wrap inline">
+            <button type="button" className="plan-meta-dur" onClick={() => setDurOpen((v) => !v)}>
+              {minutesLabel(session.estimatedMinutes)}
+              <ChevronDown size={14} />
+            </button>
+            {durOpen && (
+              <>
+                <button
+                  type="button"
+                  className="plan-menu-backdrop"
+                  aria-label="關閉"
+                  onClick={() => setDurOpen(false)}
+                />
+                <div className="plan-menu" role="listbox" aria-label="時長">
+                  {DURATION_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.minutes}
+                      type="button"
+                      role="option"
+                      aria-selected={opt.minutes === session.estimatedMinutes}
+                      className={opt.minutes === session.estimatedMinutes ? 'on' : ''}
+                      onClick={() => {
+                        setDurOpen(false)
+                        if (opt.minutes !== session.estimatedMinutes) onDuration(opt.minutes)
+                      }}
+                    >
+                      {opt.label}
+                      {opt.minutes === session.estimatedMinutes && <Check size={14} />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </span>
+        </p>
         {reason && <p className="plan-reason">{reason}</p>}
       </section>
 
@@ -220,6 +250,9 @@ function UpNext({
       <div className="sticky-cta sticky-cta-row">
         <button type="button" className="btn btn-primary btn-block display-btn" onClick={onStart}>
           開始訓練
+        </button>
+        <button type="button" className="btn btn-ghost btn-block" onClick={onReselect}>
+          重新選擇
         </button>
       </div>
     </>
@@ -260,7 +293,7 @@ function TodayRecap({
         </div>
         <div className="stat" style={{ gridColumn: '1 / -1' }}>
           <span className="muted">訓練量</span>
-          <strong>{volume.toLocaleString()} kg</strong>
+          <strong>{formatVolumeLb(volume)}</strong>
         </div>
       </section>
       {sessions.map((session) => (
@@ -277,37 +310,13 @@ function TodayRecap({
           再排一堂
         </button>
         <Link to="/history" className="btn btn-ghost btn-block">
-          睇記錄
+          睇紀錄
         </Link>
       </div>
     </>
   )
 }
 
-function HomeHeader({ name }: { name: string }) {
-  return (
-    <header className="home-top">
-      <Link to="/settings" className="avatar" aria-label="設定">
-        {initials(name)}
-      </Link>
-      <div>
-        <p className="brand-mark">我的計劃</p>
-        <p className="page-kicker">{format(new Date(), 'M月d日 EEEE', { locale: zhTW })}</p>
-      </div>
-    </header>
-  )
-}
-
-function initials(name: string) {
-  const trimmed = name.trim()
-  if (!trimmed) return 'GB'
-  const parts = trimmed.split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
-}
-
-function minutesShort(mins: number) {
-  if (mins === 90) return '1.5h'
-  if (mins % 60 === 0) return `${mins / 60}h`
-  return `${mins}m`
+function minutesLabel(mins: number) {
+  return DURATION_OPTIONS.find((opt) => opt.minutes === mins)?.label ?? `${mins} 分`
 }

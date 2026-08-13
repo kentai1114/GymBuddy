@@ -8,7 +8,7 @@
   --text: #f5f5f7;
   --muted: #8e8e93;
   --accent: #e11d48;
-  --accent-dim: rgba(225, 29, 72, 0.16);
+  --accent-dim: color-mix(in srgb, var(--accent) 16%, transparent);
   --danger: #ff453a;
   --ok: #30d158;
   --warn: #ffd60a;
@@ -168,8 +168,8 @@ h3 {
 }
 
 .panel-accent {
-  background: linear-gradient(180deg, rgba(225, 29, 72, 0.12), var(--bg-card) 70%);
-  border-color: rgba(225, 29, 72, 0.22);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), var(--bg-card) 70%);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .hero-today {
@@ -396,7 +396,7 @@ h3 {
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: rgba(225, 29, 72, 0.55);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .textarea {
@@ -477,7 +477,7 @@ h3 {
 }
 
 .month-day.today {
-  box-shadow: inset 0 0 0 1px rgba(225, 29, 72, 0.55);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .month-day.selected {
@@ -568,8 +568,8 @@ h3 {
 
 .ex-card.active,
 .ex-card.swapping {
-  outline: 1px solid rgba(225, 29, 72, 0.45);
-  background: linear-gradient(180deg, rgba(225, 29, 72, 0.1), var(--bg-card) 55%);
+  outline: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), var(--bg-card) 55%);
 }
 
 .ex-slot {
@@ -640,6 +640,13 @@ h3 {
 
 .ex-anim g {
   transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+
+.ex-anim .dummy,
+.ex-anim .gear,
+.ex-anim .prop {
+  transform-box: view-box;
   transform-origin: 0 0;
 }
 
@@ -730,7 +737,7 @@ h3 {
 }
 
 .ex-anim .rope {
-  stroke: rgba(225, 29, 72, 0.55);
+  stroke: color-mix(in srgb, var(--accent) 55%, transparent);
   stroke-width: 1.6;
   transform-origin: 50px 62px;
   animation: xa-rope 0.5s linear infinite;
@@ -986,8 +993,8 @@ h3 {
 }
 
 .llm-banner.on {
-  border-color: rgba(225, 29, 72, 0.28);
-  background: linear-gradient(180deg, rgba(225, 29, 72, 0.1), var(--bg-card) 78%);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), var(--bg-card) 78%);
 }
 
 .llm-banner strong {
@@ -1011,7 +1018,7 @@ h3 {
 }
 
 .llm-card.active {
-  border-color: rgba(225, 29, 72, 0.4);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .llm-card-head {
@@ -1172,23 +1179,14 @@ h3 {
   color: var(--muted);
 }
 
-.home-top {
+.app-header {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #f5c518;
-  color: #1a1204;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+.app-header + .display {
+  margin-top: 8px;
 }
 
 .up-next-head {
@@ -1199,6 +1197,24 @@ h3 {
   display: flex;
   gap: 8px;
   margin-top: 14px;
+}
+
+.plan-meta {
+  margin: 8px 0 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0 2px;
+  white-space: nowrap;
+}
+
+.plan-pill-wrap {
+  position: relative;
+}
+
+.plan-pill-wrap.inline {
+  display: inline-flex;
+  vertical-align: baseline;
 }
 
 .plan-pill,
@@ -1213,6 +1229,53 @@ h3 {
   color: var(--text);
   font-size: 0.84rem;
   font-weight: 650;
+}
+
+.plan-meta-dur {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+}
+
+.plan-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: transparent;
+}
+
+.plan-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 21;
+  min-width: 148px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 650;
+}
+
+.plan-menu button.on {
+  background: var(--bg-soft);
+  color: var(--accent);
 }
 
 .btn-switch {
@@ -1499,6 +1562,24 @@ h3 {
   font-weight: 650;
 }
 
+.ex-action.rest-adjust {
+  padding: 0 4px 0 10px;
+  gap: 2px;
+}
+
+.rest-step {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--muted);
+}
+
+.rest-step:disabled {
+  opacity: 0.3;
+}
+
 .set-log {
   display: flex;
   flex-direction: column;
@@ -1639,26 +1720,30 @@ h3 {
 }
 
 .rest-overlay {
-  margin: 12px 16px 0;
-  padding: 18px 16px;
-  border-radius: var(--radius);
-  background: var(--bg-card);
-  border: 1px solid var(--line);
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  border: none;
+  border-radius: 0;
+  background: rgba(11, 11, 13, 0.94);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  gap: 8px;
 }
 
 .rest-overlay strong {
   display: block;
-  font-size: 3rem;
+  font-size: 4.6rem;
   font-style: italic;
   font-weight: 800;
   letter-spacing: -0.05em;
   font-variant-numeric: tabular-nums;
-}
-
-.log-top {
-  text-align: center;
-  padding: 4px 0 2px;
+  line-height: 1;
 }
 
 .week-strip {
