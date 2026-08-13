@@ -2,11 +2,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { initNativeShell } from './lib/capacitor'
-import { registerServiceWorker } from './lib/pwa'
+import { registerServiceWorker, requestPersistentStorage } from './lib/pwa'
 import './index.css'
 
 void initNativeShell()
 registerServiceWorker()
+requestPersistentStorage()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -11,3 +11,11 @@ export function registerServiceWorker(): void {
     })
   })
 }
+
+/** Ask the browser not to evict local data (helps iOS PWA). */
+export function requestPersistentStorage(): void {
+  if (typeof navigator === 'undefined' || !navigator.storage?.persist) return
+  void navigator.storage.persist().catch(() => {
+    /* ignore */
+  })
+}

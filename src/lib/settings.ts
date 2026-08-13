@@ -110,17 +110,21 @@ export function loadLlmSettings(): LlmSettings {
 
 export function saveLlmSettings(settings: LlmSettings): LlmSettings {
   const next = normalize(settings)
-  localStorage.setItem(
-    KEY,
-    JSON.stringify({
-      openaiApiKey: next.openaiApiKey.trim(),
-      openaiModel: snapOpenAiModel(next.openaiModel),
-      openrouterApiKey: next.openrouterApiKey.trim(),
-      openrouterModel: OPENROUTER_AUTO,
-      preferredProvider: next.preferredProvider,
-      enabled: next.enabled,
-    }),
-  )
+  try {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        openaiApiKey: next.openaiApiKey.trim(),
+        openaiModel: snapOpenAiModel(next.openaiModel),
+        openrouterApiKey: next.openrouterApiKey.trim(),
+        openrouterModel: OPENROUTER_AUTO,
+        preferredProvider: next.preferredProvider,
+        enabled: next.enabled,
+      }),
+    )
+  } catch {
+    /* private mode / quota */
+  }
   return next
 }
 

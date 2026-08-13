@@ -80,11 +80,19 @@ GitHub Pages 唔好把 key 寫入 repo；喺網頁／App 設定頁貼 key 即可
 
 ## GitHub Pages（PWA）
 
-Push 去 `main` / `master` 之後，GitHub Actions 會 build 並部署靜態站。第一次：
+正確網址：**https://kentai1114.github.io/GymBuddy/**
 
-1. Repo → **Settings → Pages → Source** 揀 **GitHub Actions**
-2. 等 workflow `Deploy GitHub Pages` 跑完
-3. 手機打開 <https://kentai1114.github.io/gym_app/>，加到主畫面
+（repo 已改名做 `GymBuddy`，舊網址 `/gym_app/` 會 404。）
+
+**一定要揀 GitHub Actions，唔好揀 Deploy from a branch。**  
+如果 Source 係 `master` 根目錄，GitHub 會直接上載原始 `index.html`（入面係 `/src/main.tsx`），瀏覽器載唔到，就係一片空白。
+
+第一次／改完 Source 之後：
+
+1. Repo → **Settings → Pages → Build and deployment → Source** 揀 **GitHub Actions**
+2. 去 **Actions** → `Deploy GitHub Pages` → 最新嗰次 → **Re-run jobs**（或再 push 一次）
+3. 等 workflow 變綠色，用上面網址打開（硬 refresh：`⌘⇧R`）
+4. 手機 Safari / Chrome 加到主畫面就係 PWA
 
 ---
 

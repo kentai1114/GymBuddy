@@ -12,6 +12,7 @@ import {
   type LlmSettings,
 } from '@/lib/settings'
 import type { UserProfile } from '@/lib/types'
+import { normalizeProfile } from '@/lib/seed'
 
 const GOALS: Array<{ id: UserProfile['goal']; label: string }> = [
   { id: 'hypertrophy', label: '增肌' },
@@ -40,22 +41,22 @@ type MainTab = 'profile' | 'llm'
 export function SettingsPage() {
   const { state, updateProfile } = useWorkout()
   const [mainTab, setMainTab] = useState<MainTab>('profile')
-  const [profile, setProfile] = useState<UserProfile>(() => state.profile)
+  const [profile, setProfile] = useState<UserProfile>(() => normalizeProfile(state.profile))
   const [settings, setSettings] = useState<LlmSettings>(() => loadLlmSettings())
   const [savedProfile, setSavedProfile] = useState(false)
   const [savedLlm, setSavedLlm] = useState(false)
 
-  const saveProfile = () => {
-    const next = {
-      ...profile,
-      name: profile.name.trim() || 'KEN',
-      bodyWeightKg: Number.isFinite(profile.bodyWeightKg) ? Math.max(30, profile.bodyWeightKg) : 75,
+  const persistProfile = (next: UserProfile, flash = false) => {
+    const saved = normalizeProfile(next)
+    setProfile(saved)
+    updateProfile(saved)
+    if (flash) {
+      setSavedProfile(true)
+      window.setTimeout(() => setSavedProfile(false), 1600)
     }
-    setProfile(next)
-    updateProfile(next)
-    setSavedProfile(true)
-    window.setTimeout(() => setSavedProfile(false), 1600)
   }
+
+  const saveProfile = () => persistProfile(profile, true)
 
   const saveLlm = () => {
     const next: LlmSettings = {
@@ -113,11 +114,17 @@ export function SettingsPage() {
             <h3>個人資料</h3>
           </div>
 
+          <p className="muted" style={{ margin: '0 0 12px', fontSize: '0.82rem', lineHeight: 1.45 }}>
+            資料存在呢部手機呢個瀏覽器，冇 API key 都唔會消失。揀下面選項會即刻存。Safari
+            建議「分享 → 加到主畫面」，唔好用無痕。
+          </p>
+
           <label className="field-label">名</label>
           <input
             className="input"
             value={profile.name}
             onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
+            onBlur={(e) => persistProfile({ ...profile, name: e.target.value })}
           />
 
           <label className="field-label">體重 (kg)</label>
@@ -131,6 +138,9 @@ export function SettingsPage() {
             onChange={(e) =>
               setProfile((p) => ({ ...p, bodyWeightKg: Number(e.target.value) || 0 }))
             }
+            onBlur={(e) =>
+              persistProfile({ ...profile, bodyWeightKg: Number(e.target.value) || 0 })
+            }
           />
 
           <label className="field-label">目標</label>
@@ -140,7 +150,7 @@ export function SettingsPage() {
                 key={g.id}
                 type="button"
                 className={`pick-chip${profile.goal === g.id ? ' active' : ''}`}
-                onClick={() => setProfile((p) => ({ ...p, goal: g.id }))}
+                onClick={() => persistProfile({ ...profile, goal: g.id })}
               >
                 {g.label}
               </button>
@@ -154,7 +164,7 @@ export function SettingsPage() {
                 key={g.id}
                 type="button"
                 className={`pick-chip${profile.experience === g.id ? ' active' : ''}`}
-                onClick={() => setProfile((p) => ({ ...p, experience: g.id }))}
+                onClick={() => persistProfile({ ...profile, experience: g.id })}
               >
                 {g.label}
               </button>
@@ -168,7 +178,7 @@ export function SettingsPage() {
                 key={d}
                 type="button"
                 className={`pick-chip${profile.daysPerWeek === d ? ' active' : ''}`}
-                onClick={() => setProfile((p) => ({ ...p, daysPerWeek: d }))}
+                onClick={() => persistProfile({ ...profile, daysPerWeek: d })}
               >
                 {d} 日
               </button>
@@ -182,7 +192,7 @@ export function SettingsPage() {
                 key={g.id}
                 type="button"
                 className={`pick-chip${profile.preferredSplit === g.id ? ' active' : ''}`}
-                onClick={() => setProfile((p) => ({ ...p, preferredSplit: g.id }))}
+                onClick={() => persistProfile({ ...profile, preferredSplit: g.id })}
               >
                 {g.label}
               </button>
@@ -203,7 +213,7 @@ export function SettingsPage() {
             <strong>{llmStatusText(settings)}</strong>
             <p>
               {active.kind === 'local'
-                ? '貼下面其中一條 key 就會改用 AI。Key 只存在呢部機。'
+                ? '貼下面其中一條 key 就會改用 AI。冇 key 都得，排課用本地規則；個人資料同訓練紀錄照樣存在呢部機。'
                 : bothKeys
                   ? '兩個都有 key，下面可以改優先用邊個。'
                   : '儲存之後，下一堂訓練就會用呢個。'}

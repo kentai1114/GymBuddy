@@ -1,5 +1,5 @@
 import type { AppState, PlannedExercise, PlannedSet, UserProfile, WorkoutSession } from './types'
-import { createSeedState } from './seed'
+import { createSeedState, normalizeProfile } from './seed'
 import { getExercise } from '@/data/exercises'
 import { suggestStartWeight, usesWeight } from './loading'
 
@@ -11,7 +11,7 @@ export function loadState(): AppState {
     const raw = localStorage.getItem(KEY)
     if (!raw) return seed
     const parsed = JSON.parse(raw) as Partial<AppState>
-    const profile = { ...seed.profile, ...(parsed.profile ?? {}) }
+    const profile = normalizeProfile(parsed.profile)
     return {
       ...seed,
       ...parsed,
@@ -25,7 +25,17 @@ export function loadState(): AppState {
 }
 
 export function saveState(state: AppState): void {
-  localStorage.setItem(KEY, JSON.stringify(state))
+  try {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        ...state,
+        profile: normalizeProfile(state.profile),
+      }),
+    )
+  } catch {
+    /* private mode / quota — keep working in memory */
+  }
 }
 
 function hydrateSessions(sessions: WorkoutSession[], profile: UserProfile): WorkoutSession[] {

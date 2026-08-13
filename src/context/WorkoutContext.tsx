@@ -13,6 +13,7 @@ import { loadState, saveState } from '@/lib/storage'
 import { buildPlannedExercises, suggestWorkoutWithLlm } from '@/lib/ai-suggest'
 import { finishStats } from '@/lib/stats'
 import { localDateKey } from '@/lib/utils'
+import { normalizeProfile } from '@/lib/seed'
 
 interface WorkoutContextValue {
   state: AppState
@@ -106,7 +107,7 @@ export function WorkoutProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback((patch: Partial<UserProfile>) => {
     setState((prev) => ({
       ...prev,
-      profile: { ...prev.profile, ...patch },
+      profile: normalizeProfile({ ...prev.profile, ...patch }),
     }))
   }, [])
 
